@@ -5,6 +5,7 @@ import org.jbox2d.collision.CircleDef;
 import org.jbox2d.collision.CircleShape;
 import org.jbox2d.collision.PolygonDef;
 import org.jbox2d.collision.PolygonShape;
+import org.jbox2d.collision.Segment;
 import org.jbox2d.common.Vec2;
 import org.jbox2d.dynamics.Body;
 import org.jbox2d.dynamics.BodyDef;
@@ -23,8 +24,9 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 	private static final String TAG = "Jbox2dBallView";
 	public float targetFPS = 40.0f;
 	public float timeStep = (10.0f / targetFPS);  
-	public int iterations = 5;  
+	public int iterations = 5;
 	
+	private boolean init = false;
 	private World world;
 	private AABB worldAABB;
 	private BodyDef groundBodyDef;
@@ -43,34 +45,36 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 	public void createWorld() {
 		worldAABB = new AABB();
 		worldAABB.lowerBound.set(new Vec2(0.0f, 0.0f));
-		worldAABB.upperBound.set(new Vec2(150.0f, 150.0f));
+		worldAABB.upperBound.set(new Vec2(getWidth(), getHeight()));
 		
 		Vec2 gravity = new Vec2(0.0f, 9.8f);
 		boolean doSleep = true;
 		world = new World(worldAABB, gravity, doSleep);
-		createGround();
-		createBall();
 	}
 	
 	private class ballLoop extends Thread {
-		private Canvas canvas = null;
 		
 		public void run() {
 			while(!isInterrupted()) {
-				synchronized(this) {
-					updateState();
-					updatePhysics();
-					updateAnimation();
-					updateView();
-				}
+				updateState();
+				updatePhysics();
+				updateAnimation();
+				updateView();
 			}
 		}
 		
 		private void updateState() {
+			if (!init) {
+				createWorld();
+				createBoundary();
+				//createGround();
+				createBall();
+				init = true;
+			}
 			world.step(timeStep, iterations);
 			
-			//Vec2 posB = ballBody.getPosition();
-	        //Log.v("PHYSICS TEST", "Pos: (" + posB.x + ", " + posB.y + ")");
+			Vec2 posB = ballBody.getPosition();
+	        Log.v("PHYSICS TEST", "Pos: (" + posB.x + ", " + posB.y + ")");
 		}
 		
 		private void updatePhysics() {
@@ -82,52 +86,90 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		}
 		
 		private void updateView() {
+			Canvas canvas = null;
 			Paint mpaint = new Paint();
 			try {
 				canvas = getHolder().lockCanvas();
 				canvas.clipRect(0, 0, getWidth(), getHeight());
 				canvas.drawColor(Color.WHITE);
-				synchronized (this) {
+				synchronized (getHolder()) {
 					mpaint.setStyle(Paint.Style.FILL_AND_STROKE);
 					mpaint.setColor(Color.RED);
-					//canvas.drawCircle(ballBody.getPosition().x, ballBody.getPosition().y, ball.radius, mpaint);
 					canvas.drawCircle(ballBody.getPosition().x, ballBody.getPosition().y, ((CircleShape) ballBody.getShapeList()).getRadius(), mpaint);
-					mpaint.setColor(Color.BLACK);
-					drawPolygon(mpaint);
-					//canvas.drawRect(0.0f, 0.0f, 150.0f, 150.0f, mpaint);
-					//canvas.drawRect(10.0f, 145.0f, 150.0f, 150.0f, mpaint);
+					//mpaint.setColor(Color.BLACK);
+					//canvas.drawLine(10.0f, 120.0f, 110.0f, 120.0f, mpaint);
+					//drawPolygon(mpaint);
 				}
 			} finally {
 				getHolder().unlockCanvasAndPost(canvas);
 			}
 		}
 		
-		private void drawPolygon(Paint mpaint) {
+		private void drawPolygon(Canvas canvas, Paint mpaint) {
 			PolygonShape ps;
-			Vec2 a, b, c, d;
+			//Vec2 a, b, c, d;
 			
 			ps = (PolygonShape) groundBody.getShapeList();
-			
+			/*
 			a = ps.getVertices()[0];
 			b = ps.getVertices()[1];
 			c = ps.getVertices()[2];
 			d = ps.getVertices()[3];
-			
+			*/
 			canvas.drawRect(ps.getVertices()[0].x + groundBodyDef.position.x,
 							ps.getVertices()[0].y + groundBodyDef.position.y,
 							ps.getVertices()[2].x + groundBodyDef.position.x,
 							ps.getVertices()[2].y + groundBodyDef.position.y,
 							mpaint);
-			//canvas.drawRect(10.0f, 20.0f, 90.0f, 90.0f, mpaint);
 		}
+	}
+	
+	private void createBoundary() {
+		// Create a boundary so objects on the screen doesn't fall out of view
+		// TODO: Find better way to define boundary
+		BodyDef boundaryDef = new BodyDef();
+		boundaryDef.position.set(world.getWorldAABB().lowerBound);
+		Body boundaryBody = world.createBody(boundaryDef);
+		
+		PolygonDef northWall = new PolygonDef();
+		PolygonDef eastWall = new PolygonDef();
+		PolygonDef southWall = new PolygonDef();
+		PolygonDef westWall = new PolygonDef();
+		
+		Vec2 xOffset = new Vec2(getWidth() - 1.0f, 0.0f);
+		Vec2 yOffset = new Vec2(0.0f, getHeight() - 1.0f);
+		Vec2 hrz[] = new Vec2[4];
+		Vec2 vrt[] = new Vec2[4];
+		
+		hrz[0] = new Vec2(0.0f, 0.0f);
+		hrz[1] = new Vec2(getWidth(), 0.0f);
+		hrz[2] = new Vec2(getWidth(), 1.0f);
+		hrz[3] = new Vec2(0.0f, 1.0f);
+		
+		vrt[0] = new Vec2(0.0f, 0.0f);
+		vrt[1] = new Vec2(0.0f, getHeight());
+		vrt[2] = new Vec2(1.0f, getHeight());
+		vrt[3] = new Vec2(1.0f, 0.0f);
+		
+		for (int i=0; i<hrz.length; i++) {
+			northWall.addVertex(hrz[i]);
+			southWall.addVertex(hrz[i].add(yOffset));
+			westWall.addVertex(vrt[i]);
+			eastWall.addVertex(vrt[i].add(xOffset));
+		}
+		
+		boundaryBody.createShape(northWall);
+		boundaryBody.createShape(eastWall);
+		boundaryBody.createShape(southWall);
+		boundaryBody.createShape(westWall);
 	}
 	
 	private void createGround() {
 		groundBodyDef = new BodyDef();
-		groundBodyDef.position.set(60.0f, 150.0f - 30.0f);
+		groundBodyDef.position.set(60.0f, getHeight());
         groundBody = world.createBody(groundBodyDef);
         PolygonDef groundShapeDef = new PolygonDef();
-        groundShapeDef.setAsBox(50.0f, 10.0f);
+        groundShapeDef.setAsBox(50.0f, 1.0f);
         groundBody.createShape(groundShapeDef);
 	}
 	
@@ -135,7 +177,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		
 		// Create dynamic body
 		BodyDef ballBodyDef = new BodyDef();
-		ballBodyDef.position.set(20.0f, 150.0f - 100.0f);
+		ballBodyDef.position.set(20.0f, 50.0f);
 		ballBody = world.createBody(ballBodyDef);
 		
 		// Create shape with properties
@@ -152,7 +194,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 	@Override
 	public void surfaceChanged(SurfaceHolder holder, int format, int width,
 			int height) {
-		Log.i(TAG, "Surface changed");
+		Log.i(TAG, "Surface changed, world initialized");
 		
 	}
 

@@ -9,8 +9,6 @@ public class Jbox2dBall extends Activity {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main);
-        
-        getJbox2dBallView().createWorld();
     }
     
     private Jbox2dBallView getJbox2dBallView() {
