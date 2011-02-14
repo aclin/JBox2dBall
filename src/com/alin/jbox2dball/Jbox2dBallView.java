@@ -8,6 +8,7 @@ import org.jbox2d.collision.CircleDef;
 import org.jbox2d.collision.CircleShape;
 import org.jbox2d.collision.PolygonDef;
 import org.jbox2d.collision.PolygonShape;
+import org.jbox2d.collision.Shape;
 import org.jbox2d.common.Vec2;
 import org.jbox2d.dynamics.Body;
 import org.jbox2d.dynamics.BodyDef;
@@ -71,9 +72,10 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 				createWorld();
 				createBoundary();
 				//createGround();
-				createIncline((float) Math.PI * 0.1f);
+				//createIncline((float) Math.PI * 0.1f);
 				//createBall();
 				//createBall2();
+				rain();
 				init = true;
 			}
 			world.step(timeStep, iterations);
@@ -100,9 +102,14 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 				synchronized (getHolder()) {
 					mpaint.setStyle(Paint.Style.FILL_AND_STROKE);
 					mpaint.setColor(Color.RED);
-					canvas.drawCircle(ballBody.getPosition().x, ballBody.getPosition().y, ((CircleShape) ballBody.getShapeList()).getRadius(), mpaint);
-					mpaint.setColor(Color.BLACK);
-					canvas.drawCircle(ballBody2.getPosition().x, ballBody2.getPosition().y, ((CircleShape) ballBody2.getShapeList()).getRadius(), mpaint);
+					for (Body b : bodies) {
+						canvas.drawCircle(b.getPosition().x,
+										  b.getPosition().y,
+										  ((CircleShape) b.getShapeList()).getRadius(),
+										  mpaint);
+					}
+					//mpaint.setColor(Color.BLACK);
+					//canvas.drawCircle(ballBody2.getPosition().x, ballBody2.getPosition().y, ((CircleShape) ballBody2.getShapeList()).getRadius(), mpaint);
 					//canvas.drawLine(10.0f, 120.0f, 110.0f, 120.0f, mpaint);
 					//drawPolygon(mpaint);
 				}
@@ -113,15 +120,8 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		
 		private void drawPolygon(Canvas canvas, Paint mpaint) {
 			PolygonShape ps;
-			//Vec2 a, b, c, d;
 			
 			ps = (PolygonShape) groundBody.getShapeList();
-			/*
-			a = ps.getVertices()[0];
-			b = ps.getVertices()[1];
-			c = ps.getVertices()[2];
-			d = ps.getVertices()[3];
-			*/
 			canvas.drawRect(ps.getVertices()[0].x + groundBodyDef.position.x,
 							ps.getVertices()[0].y + groundBodyDef.position.y,
 							ps.getVertices()[2].x + groundBodyDef.position.x,
@@ -179,6 +179,23 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
         groundBody.createShape(groundShapeDef);
 	}
 	
+	private void rain() {
+		CircleDef ball = new CircleDef();
+		ball.radius = 2.0f;
+		ball.density = 1.0f;
+		ball.restitution = 0.7f;
+		
+		for (int i = 0; i < 10; i++) {
+			BodyDef ballBodyDef = new BodyDef();
+			ballBodyDef.position.set(new Vec2(getWidth() / 2, 90.0f - 5.0f * i));
+			ballBody = world.createBody(ballBodyDef);
+			ballBody.createShape(ball);
+			ballBody.setMassFromShapes();
+			bodies.add(ballBody);
+		}
+		
+	}
+	
 	private void createBall() {
 		
 		// Create dynamic body
@@ -197,7 +214,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		ballBody.setMassFromShapes();
 	}
 	
-private void createBall2() {
+	private void createBall2() {
 		
 		// Create dynamic body
 		BodyDef ballBodyDef = new BodyDef();
