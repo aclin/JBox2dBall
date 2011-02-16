@@ -33,7 +33,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 	private World world;
 	private AABB worldAABB;
 	private BodyDef groundBodyDef = new BodyDef();
-	private List<Body> bodies = new ArrayList();
+	private List<Body> bodies = new ArrayList<Body>();
 	private Body groundBody, ballBody, ballBody2;
 	private CircleDef ball;
 	
@@ -54,6 +54,11 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		Vec2 gravity = new Vec2(0.0f, 9.8f);
 		boolean doSleep = true;
 		world = new World(worldAABB, gravity, doSleep);
+	}
+	
+	// Set world gravity
+	public void setGravity(float gx, float gy) {
+		world.setGravity(new Vec2(gx, gy));
 	}
 	
 	private class ballLoop extends Thread {
