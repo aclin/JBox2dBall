@@ -18,6 +18,8 @@ public class Jbox2dBall extends Activity implements SensorEventListener{
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main);
         
+        getJbox2dBallView().createWorld();
+        
         sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
         accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
     }
