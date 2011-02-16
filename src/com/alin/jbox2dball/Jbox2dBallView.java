@@ -20,6 +20,9 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.util.AttributeSet;
 import android.util.Log;
+import android.view.GestureDetector;
+import android.view.GestureDetector.SimpleOnGestureListener;
+import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 
@@ -30,19 +33,22 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 	public int iterations = 5;
 	
 	private boolean init = false;
+	
 	private World world;
 	private AABB worldAABB;
 	private BodyDef groundBodyDef = new BodyDef();
 	private List<Body> bodies = new ArrayList<Body>();
-	private Body groundBody, ballBody, ballBody2;
+	private Body groundBody;
 	private CircleDef ball;
 	
 	private ballLoop loop;
+	private GestureDetector gestureDetector;
 
 	public Jbox2dBallView(Context context, AttributeSet attrs) {
 		super(context, attrs);
-		loop = new ballLoop();
 		getHolder().addCallback(this);
+		gestureDetector = new GestureDetector(context, new GestureListener());
+		loop = new ballLoop();
 	}
 	
 	// Initialize this world
@@ -54,85 +60,6 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		Vec2 gravity = new Vec2(0.0f, 9.8f);
 		boolean doSleep = true;
 		world = new World(worldAABB, gravity, doSleep);
-	}
-	
-	// Set world gravity
-	public void setGravity(float gx, float gy) {
-		world.setGravity(new Vec2(gx, gy));
-	}
-	
-	private class ballLoop extends Thread {
-		
-		public void run() {
-			while(!isInterrupted()) {
-				updateState();
-				updatePhysics();
-				updateAnimation();
-				updateView();
-			}
-		}
-		
-		private void updateState() {
-			if (!init) {
-				createWorld();
-				createBoundary();
-				//createGround();
-				//createIncline((float) Math.PI * 0.1f);
-				//createBall();
-				//createBall2();
-				rain();
-				init = true;
-			}
-			world.step(timeStep, iterations);
-			
-			Vec2 posB = ballBody.getPosition();
-	        Log.v("PHYSICS TEST", "Pos: (" + posB.x + ", " + posB.y + ")");
-		}
-		
-		private void updatePhysics() {
-			
-		}
-		
-		private void updateAnimation() {
-			
-		}
-		
-		private void updateView() {
-			Canvas canvas = null;
-			Paint mpaint = new Paint();
-			try {
-				canvas = getHolder().lockCanvas();
-				canvas.clipRect(0, 0, getWidth(), getHeight());
-				canvas.drawColor(Color.WHITE);
-				synchronized (getHolder()) {
-					mpaint.setStyle(Paint.Style.FILL_AND_STROKE);
-					mpaint.setColor(Color.RED);
-					for (Body b : bodies) {
-						canvas.drawCircle(b.getPosition().x,
-										  b.getPosition().y,
-										  ((CircleShape) b.getShapeList()).getRadius(),
-										  mpaint);
-					}
-					//mpaint.setColor(Color.BLACK);
-					//canvas.drawCircle(ballBody2.getPosition().x, ballBody2.getPosition().y, ((CircleShape) ballBody2.getShapeList()).getRadius(), mpaint);
-					//canvas.drawLine(10.0f, 120.0f, 110.0f, 120.0f, mpaint);
-					//drawPolygon(mpaint);
-				}
-			} finally {
-				getHolder().unlockCanvasAndPost(canvas);
-			}
-		}
-		
-		private void drawPolygon(Canvas canvas, Paint mpaint) {
-			PolygonShape ps;
-			
-			ps = (PolygonShape) groundBody.getShapeList();
-			canvas.drawRect(ps.getVertices()[0].x + groundBodyDef.position.x,
-							ps.getVertices()[0].y + groundBodyDef.position.y,
-							ps.getVertices()[2].x + groundBodyDef.position.x,
-							ps.getVertices()[2].y + groundBodyDef.position.y,
-							mpaint);
-		}
 	}
 	
 	private void createBoundary() {
@@ -193,7 +120,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		for (int i = 0; i < 10; i++) {
 			BodyDef ballBodyDef = new BodyDef();
 			ballBodyDef.position.set(new Vec2(getWidth() / 2, 90.0f - 5.0f * i));
-			ballBody = world.createBody(ballBodyDef);
+			Body ballBody = world.createBody(ballBodyDef);
 			ballBody.createShape(ball);
 			ballBody.setMassFromShapes();
 			bodies.add(ballBody);
@@ -206,7 +133,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		// Create dynamic body
 		BodyDef ballBodyDef = new BodyDef();
 		ballBodyDef.position.set(20.0f, 20.0f);
-		ballBody = world.createBody(ballBodyDef);
+		Body ballBody = world.createBody(ballBodyDef);
 		
 		// Create shape with properties
 		ball = new CircleDef();
@@ -219,24 +146,6 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		ballBody.setMassFromShapes();
 	}
 	
-	private void createBall2() {
-		
-		// Create dynamic body
-		BodyDef ballBodyDef = new BodyDef();
-		ballBodyDef.position.set(30.0f, 10.0f);
-		ballBody2 = world.createBody(ballBodyDef);
-		
-		// Create shape with properties
-		ball = new CircleDef();
-		ball.radius = 8.0f;
-		ball.density = 1.0f;
-		ball.restitution = 0.95f;
-		
-		//Assign shape to Body
-		ballBody2.createShape(ball);
-		ballBody2.setMassFromShapes();
-	}
-	
 	private void createIncline(float angle) {
 		groundBodyDef.position.set(30.0f, 90.0f);
 		groundBodyDef.angle = angle;
@@ -244,6 +153,126 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		PolygonDef incline = new PolygonDef();
 		incline.setAsBox(30.0f, 5.0f);
 		groundBody.createShape(incline);
+	}
+	
+	private void addBall(float x, float y) {
+		BodyDef ballBodyDef = new BodyDef();
+		ballBodyDef.position.set(x, y);
+		Body ballBody = world.createBody(ballBodyDef);
+		
+		CircleDef ball = new CircleDef();
+		ball.radius = 5.0f;
+		ball.density = 1.0f;
+		ball.restitution = 0.6f;
+		
+		ballBody.createShape(ball);
+		ballBody.setMassFromShapes();
+		bodies.add(ballBody);
+		Log.i(TAG, "Ball added: (" + x + " ," + y + ")");
+	}
+	
+	private void drawPolygon(Canvas canvas, Paint mpaint) {
+		// TODO: Come up with more efficient way to draw polygons
+		PolygonShape ps;
+		
+		ps = (PolygonShape) groundBody.getShapeList();
+		canvas.drawRect(ps.getVertices()[0].x + groundBodyDef.position.x,
+						ps.getVertices()[0].y + groundBodyDef.position.y,
+						ps.getVertices()[2].x + groundBodyDef.position.x,
+						ps.getVertices()[2].y + groundBodyDef.position.y,
+						mpaint);
+	}
+	
+	// Set world gravity
+	public void setGravity(float gx, float gy) {
+		world.setGravity(new Vec2(gx, gy));
+	}
+	
+	private class ballLoop extends Thread {
+		private MotionEvent downEvent;
+		private boolean touchDown = false;
+		
+		public void run() {
+			while(!isInterrupted()) {
+				updateState();
+				updateInput();
+				updatePhysics();
+				updateAnimation();
+				updateView();
+			}
+		}
+		
+		private void updateState() {
+			if (!init) {
+				createWorld();
+				createBoundary();
+				//createGround();
+				//createIncline((float) Math.PI * 0.1f);
+				//createBall();
+				//rain();
+				init = true;
+			}
+			world.step(timeStep, iterations);
+		}
+		
+		private void updateInput() {
+			if (!touchDown) {
+				return;
+			}
+			addBall(downEvent.getX(), downEvent.getY());
+		}
+		
+		private void updatePhysics() {
+			
+		}
+		
+		private void updateAnimation() {
+			
+		}
+		
+		private void updateView() {
+			Canvas canvas = null;
+			Paint mpaint = new Paint();
+			try {
+				canvas = getHolder().lockCanvas();
+				canvas.clipRect(0, 0, getWidth(), getHeight());
+				canvas.drawColor(Color.WHITE);
+				synchronized (getHolder()) {
+					mpaint.setStyle(Paint.Style.FILL_AND_STROKE);
+					mpaint.setColor(Color.RED);
+					for (Body b : bodies) {
+						canvas.drawCircle(b.getPosition().x,
+										  b.getPosition().y,
+										  ((CircleShape) b.getShapeList()).getRadius(),
+										  mpaint);
+					}
+				}
+			} finally {
+				getHolder().unlockCanvasAndPost(canvas);
+			}
+		}
+	}
+	
+	private class GestureListener extends SimpleOnGestureListener {
+		@Override
+		public boolean onDown(MotionEvent e) {
+			return true;
+		}
+		
+		@Override
+		public boolean onSingleTapConfirmed(MotionEvent e) {
+			loop.downEvent = e;
+			loop.touchDown = true;
+			return true;
+		}
+	}
+	
+	@Override
+	public boolean onTouchEvent(MotionEvent e) {
+		if (e.getAction() == MotionEvent.ACTION_UP) {
+			loop.touchDown = false;
+		}
+		return gestureDetector.onTouchEvent(e);
 	}
 	
 	@Override
