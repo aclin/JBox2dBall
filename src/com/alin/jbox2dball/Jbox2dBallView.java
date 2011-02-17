@@ -168,7 +168,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		ballBody.createShape(ball);
 		ballBody.setMassFromShapes();
 		bodies.add(ballBody);
-		Log.i(TAG, "Ball added: (" + x + " ," + y + ")");
+		Log.i(TAG, "Added 1 ball at: (" + x + " ," + y + ")");
 	}
 	
 	private void drawPolygon(Canvas canvas, Paint mpaint) {
@@ -191,6 +191,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 	private class ballLoop extends Thread {
 		private MotionEvent downEvent;
 		private boolean touchDown = false;
+		private boolean addBall = false;
 		
 		public void run() {
 			while(!isInterrupted()) {
@@ -216,10 +217,10 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		}
 		
 		private void updateInput() {
-			if (!touchDown) {
-				return;
+			if (addBall) {
+				addBall(downEvent.getX(), downEvent.getY());
+				addBall = false;
 			}
-			addBall(downEvent.getX(), downEvent.getY());
 		}
 		
 		private void updatePhysics() {
@@ -262,9 +263,11 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		@Override
 		public boolean onSingleTapConfirmed(MotionEvent e) {
 			loop.downEvent = e;
-			loop.touchDown = true;
+			loop.addBall = true;
+			Log.i(TAG, "Down press occurred");
 			return true;
 		}
+		
 	}
 	
 	@Override
@@ -278,7 +281,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 	@Override
 	public void surfaceChanged(SurfaceHolder holder, int format, int width,
 			int height) {
-		Log.i(TAG, "Surface changed, world initialized");
+		Log.i(TAG, "Surface changed");
 		
 	}
 
