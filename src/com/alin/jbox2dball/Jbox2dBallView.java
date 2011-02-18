@@ -188,7 +188,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		world.setGravity(new Vec2(gx, gy));
 	}
 	
-	private class ballLoop extends Thread {
+	public class ballLoop extends Thread {
 		private MotionEvent downEvent;
 		private boolean touchDown = false;
 		private boolean addBall = false;
@@ -232,12 +232,11 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		}
 		
 		private void updateView() {
-			Canvas canvas = null;
+			Canvas canvas = getHolder().lockCanvas();
 			Paint mpaint = new Paint();
+			canvas.clipRect(0, 0, getWidth(), getHeight());
+			canvas.drawColor(Color.WHITE);
 			try {
-				canvas = getHolder().lockCanvas();
-				canvas.clipRect(0, 0, getWidth(), getHeight());
-				canvas.drawColor(Color.WHITE);
 				synchronized (getHolder()) {
 					mpaint.setStyle(Paint.Style.FILL_AND_STROKE);
 					mpaint.setColor(Color.RED);
@@ -251,6 +250,17 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			} finally {
 				getHolder().unlockCanvasAndPost(canvas);
 			}
+		}
+		
+		public void pause() {
+			// Activity paused, destroys everything
+			Body b = world.getBodyList();
+			for (int i=0; i<world.getBodyCount(); i++) {
+				world.destroyBody(b);
+				if (b.getNext() != null)
+					b = b.getNext();
+			}
+			Log.i(TAG, "All bodies in world destroyed");
 		}
 	}
 	
@@ -268,6 +278,10 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			return true;
 		}
 		
+	}
+	
+	public ballLoop getThread() {
+		return loop;
 	}
 	
 	@Override
@@ -295,6 +309,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 	public void surfaceDestroyed(SurfaceHolder holder) {
 		Log.i(TAG, "Surface destroyed");
 		loop.interrupt();
+		
 	}
 
 }

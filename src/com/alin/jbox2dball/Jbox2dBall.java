@@ -31,6 +31,7 @@ public class Jbox2dBall extends Activity implements SensorEventListener{
     @Override
     public void onPause() {
     	super.onPause();
+    	getJbox2dBallView().getThread().pause();
     	sensorManager.unregisterListener(this, accelerometer);
     }
     
