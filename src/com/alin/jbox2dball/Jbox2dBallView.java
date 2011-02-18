@@ -38,7 +38,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 	private AABB worldAABB;
 	private BodyDef groundBodyDef = new BodyDef();
 	private List<Body> bodies = new ArrayList<Body>();
-	private Body groundBody;
+	private Body groundBody, paddleBody;
 	private CircleDef ball;
 	
 	private ballLoop loop;
@@ -57,7 +57,8 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		worldAABB.lowerBound.set(new Vec2(0.0f, 0.0f));
 		worldAABB.upperBound.set(new Vec2(getWidth(), getHeight()));
 		
-		Vec2 gravity = new Vec2(0.0f, 9.8f);
+		//Vec2 gravity = new Vec2(0.0f, 9.8f);
+		Vec2 gravity = new Vec2(0.0f, 0.0f);
 		boolean doSleep = true;
 		world = new World(worldAABB, gravity, doSleep);
 	}
@@ -102,13 +103,17 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		boundaryBody.createShape(westWall);
 	}
 	
-	private void createGround() {
-		groundBodyDef = new BodyDef();
-		groundBodyDef.position.set(60.0f, getHeight());
-        groundBody = world.createBody(groundBodyDef);
-        PolygonDef groundShapeDef = new PolygonDef();
-        groundShapeDef.setAsBox(50.0f, 1.0f);
-        groundBody.createShape(groundShapeDef);
+	private void createPaddle() {
+		BodyDef paddleBodyDef = new BodyDef();
+		paddleBodyDef.position.set(getWidth() / 2, getHeight() - 10.0f);
+        paddleBody = world.createBody(paddleBodyDef);
+        
+        PolygonDef paddle = new PolygonDef();
+        paddle.setAsBox(50.0f, 5.0f);
+        paddle.density = 1.0f;
+        paddle.friction = 0.08f;
+        paddle.restitution = 0.0f;
+        paddleBody.createShape(paddle);
 	}
 	
 	private void rain() {
@@ -163,7 +168,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		CircleDef ball = new CircleDef();
 		ball.radius = 5.0f;
 		ball.density = 1.0f;
-		ball.restitution = 0.6f;
+		ball.restitution = 0.7f;
 		
 		ballBody.createShape(ball);
 		ballBody.setMassFromShapes();
@@ -171,15 +176,32 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		Log.i(TAG, "Added 1 ball at: (" + x + " ," + y + ")");
 	}
 	
+	private void addPongBall() {
+		BodyDef ballBodyDef = new BodyDef();
+		ballBodyDef.position.set(getWidth() / 2, getHeight() / 2);
+		Body ballBody = world.createBody(ballBodyDef);
+		
+		CircleDef ball = new CircleDef();
+		ball.radius = 5.0f;
+		ball.density = 1.0f;
+		ball.restitution = 1.0f;
+		ball.friction = 0.0f;
+		
+		ballBody.createShape(ball);
+		ballBody.setMassFromShapes();
+		bodies.add(ballBody);
+		Log.i(TAG, "Added Pong ball at: (" + ballBody.getPosition().x + " ," + ballBody.getPosition().y + ")");
+	}
+	
 	private void drawPolygon(Canvas canvas, Paint mpaint) {
 		// TODO: Come up with more efficient way to draw polygons
 		PolygonShape ps;
 		
-		ps = (PolygonShape) groundBody.getShapeList();
-		canvas.drawRect(ps.getVertices()[0].x + groundBodyDef.position.x,
-						ps.getVertices()[0].y + groundBodyDef.position.y,
-						ps.getVertices()[2].x + groundBodyDef.position.x,
-						ps.getVertices()[2].y + groundBodyDef.position.y,
+		ps = (PolygonShape) paddleBody.getShapeList();
+		canvas.drawRect(ps.getVertices()[0].x + paddleBody.getPosition().x,
+						ps.getVertices()[0].y + paddleBody.getPosition().y,
+						ps.getVertices()[2].x + paddleBody.getPosition().x,
+						ps.getVertices()[2].y + paddleBody.getPosition().y,
 						mpaint);
 	}
 	
@@ -207,10 +229,13 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			if (!init) {
 				createWorld();
 				createBoundary();
-				//createGround();
-				//createIncline((float) Math.PI * 0.1f);
-				//createBall();
-				//rain();
+				createPaddle();
+				addPongBall();
+				
+				for (Body b : bodies) {
+					b.setLinearVelocity(new Vec2(30.0f, 30.0f));
+				}
+				
 				init = true;
 			}
 			world.step(timeStep, iterations);
@@ -246,6 +271,8 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 										  ((CircleShape) b.getShapeList()).getRadius(),
 										  mpaint);
 					}
+					mpaint.setColor(Color.BLACK);
+					drawPolygon(canvas, mpaint);
 				}
 			} finally {
 				getHolder().unlockCanvasAndPost(canvas);
@@ -272,8 +299,8 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		
 		@Override
 		public boolean onSingleTapConfirmed(MotionEvent e) {
-			loop.downEvent = e;
-			loop.addBall = true;
+			//loop.downEvent = e;
+			//loop.addBall = true;
 			Log.i(TAG, "Down press occurred");
 			return true;
 		}

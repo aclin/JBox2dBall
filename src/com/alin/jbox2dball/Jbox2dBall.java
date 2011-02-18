@@ -6,9 +6,11 @@ import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.Surface;
 
 public class Jbox2dBall extends Activity implements SensorEventListener{
+	private static final String TAG = "JBox2DBall";
 	private SensorManager sensorManager;
 	private Sensor accelerometer;
 	
@@ -33,12 +35,20 @@ public class Jbox2dBall extends Activity implements SensorEventListener{
     	super.onPause();
     	getJbox2dBallView().getThread().pause();
     	sensorManager.unregisterListener(this, accelerometer);
+    	Log.i(TAG, "Activity on pause");
     }
     
     @Override
     public void onResume() {
     	super.onResume();
     	sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_UI);
+    	Log.i(TAG, "Activity on resume");
+    }
+    
+    @Override
+    public void onStop() {
+    	super.onStop();
+    	Log.i(TAG, "Activity on stop");
     }
     
     @Override
@@ -51,16 +61,16 @@ public class Jbox2dBall extends Activity implements SensorEventListener{
 		if (event.sensor.getType() != Sensor.TYPE_ACCELEROMETER) return;
 		switch (getWindowManager().getDefaultDisplay().getOrientation()) {
 			case Surface.ROTATION_0:
-				getJbox2dBallView().setGravity(-event.values[0], event.values[1]);
+				//getJbox2dBallView().setGravity(-event.values[0], event.values[1]);
 				break;
 			case Surface.ROTATION_90:
-				getJbox2dBallView().setGravity(event.values[1], event.values[0]);
+				//getJbox2dBallView().setGravity(event.values[1], event.values[0]);
 				break;
 			case Surface.ROTATION_180:
-				getJbox2dBallView().setGravity(event.values[0], -event.values[1]);
+				//getJbox2dBallView().setGravity(event.values[0], -event.values[1]);
 				break;
 			case Surface.ROTATION_270:
-				getJbox2dBallView().setGravity(-event.values[1], -event.values[0]);
+				//getJbox2dBallView().setGravity(-event.values[1], -event.values[0]);
 				break;
 		}
 	}
