@@ -194,7 +194,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		ball.radius = 5.0f;
 		ball.density = 1.0f;
 		ball.restitution = 1.0f;
-		ball.friction = 0.0f;
+		ball.friction = 0.1f;
 		
 		pongBallBody.createShape(ball);
 		pongBallBody.setMassFromShapes();
