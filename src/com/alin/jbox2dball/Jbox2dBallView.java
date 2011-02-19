@@ -114,6 +114,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
         paddle.friction = 0.08f;
         paddle.restitution = 0.0f;
         paddleBody.createShape(paddle);
+        Log.i(TAG, "Paddle created at (" + paddleBody.getPosition().x + ", " + paddleBody.getPosition().y + ")");
 	}
 	
 	private void rain() {
@@ -212,8 +213,28 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 	
 	public class ballLoop extends Thread {
 		private MotionEvent downEvent;
+		
 		private boolean touchDown = false;
 		private boolean addBall = false;
+		private boolean scroll = false;
+		
+		private float slide = 0.0f;
+		
+		private void slidePaddle(float slide) {
+			// Slide the paddle some x distance
+			float x = paddleBody.getXForm().position.x;
+			float y = paddleBody.getXForm().position.y;
+			if (x - slide > getWidth() - 51.0f)
+				paddleBody.setXForm(new Vec2(getWidth() - 49.0f, y), 0.0f);
+			else if (x - slide < 51.0f)
+				paddleBody.setXForm(new Vec2(51.0f, y), 0.0f);
+			else
+				paddleBody.setXForm(new Vec2(x - slide, y), 0.0f);
+			
+			Log.i(TAG, "Paddle slid to (" + paddleBody.getPosition().x + ", " + paddleBody.getPosition().y + ")");
+			Log.i(TAG, "Slide distance: " + slide);
+			Log.i(TAG, "Width: " + getWidth());
+		}
 		
 		public void run() {
 			while(!isInterrupted()) {
@@ -246,6 +267,10 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 				addBall(downEvent.getX(), downEvent.getY());
 				addBall = false;
 			}
+			if (scroll) {
+				slidePaddle(slide);
+				scroll = false;
+			}
 		}
 		
 		private void updatePhysics() {
@@ -271,6 +296,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 										  ((CircleShape) b.getShapeList()).getRadius(),
 										  mpaint);
 					}
+					mpaint.setStyle(Paint.Style.FILL);
 					mpaint.setColor(Color.BLACK);
 					drawPolygon(canvas, mpaint);
 				}
@@ -294,6 +320,13 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 	private class GestureListener extends SimpleOnGestureListener {
 		@Override
 		public boolean onDown(MotionEvent e) {
+			return true;
+		}
+		
+		@Override
+		public boolean onScroll(MotionEvent e1, MotionEvent e2, float scrollX, float scrollY) {
+			loop.scroll = true;
+			loop.slide = scrollX;
 			return true;
 		}
 		
