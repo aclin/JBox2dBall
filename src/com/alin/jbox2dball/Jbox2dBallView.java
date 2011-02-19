@@ -8,11 +8,13 @@ import org.jbox2d.collision.CircleDef;
 import org.jbox2d.collision.CircleShape;
 import org.jbox2d.collision.PolygonDef;
 import org.jbox2d.collision.PolygonShape;
-import org.jbox2d.collision.Shape;
 import org.jbox2d.common.Vec2;
 import org.jbox2d.dynamics.Body;
 import org.jbox2d.dynamics.BodyDef;
+import org.jbox2d.dynamics.ContactListener;
 import org.jbox2d.dynamics.World;
+import org.jbox2d.dynamics.contacts.ContactPoint;
+import org.jbox2d.dynamics.contacts.ContactResult;
 
 import android.content.Context;
 import android.graphics.Canvas;
@@ -28,6 +30,8 @@ import android.view.SurfaceView;
 
 public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callback {
 	private static final String TAG = "Jbox2dBallView";
+	private static final float PADDLE_WIDTH = 30.0f; // Note this is half-width, total is 60.0f
+	private static final float PADDLE_HEIGHT = 5.0f; // Note this is half-height, total is 10.0f
 	public float targetFPS = 40.0f;
 	public float timeStep = (10.0f / targetFPS);  
 	public int iterations = 5;
@@ -38,7 +42,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 	private AABB worldAABB;
 	private BodyDef groundBodyDef = new BodyDef();
 	private List<Body> bodies = new ArrayList<Body>();
-	private Body groundBody, paddleBody;
+	private Body groundBody, paddleBody, pongBallBody;
 	private CircleDef ball;
 	
 	private ballLoop loop;
@@ -58,9 +62,10 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		worldAABB.upperBound.set(new Vec2(getWidth(), getHeight()));
 		
 		//Vec2 gravity = new Vec2(0.0f, 9.8f);
-		Vec2 gravity = new Vec2(0.0f, 0.0f);
+		Vec2 gravity = new Vec2(0.0f, 0.0f); // Zero-gravity environment, all velocities persists
 		boolean doSleep = true;
 		world = new World(worldAABB, gravity, doSleep);
+		world.setContactListener(new customListener());
 	}
 	
 	private void createBoundary() {
@@ -97,6 +102,9 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			eastWall.addVertex(vrt[i].add(xOffset));
 		}
 		
+		eastWall.friction = 0.1f;
+		westWall.friction = 0.1f;
+		
 		boundaryBody.createShape(northWall);
 		boundaryBody.createShape(eastWall);
 		boundaryBody.createShape(southWall);
@@ -109,7 +117,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
         paddleBody = world.createBody(paddleBodyDef);
         
         PolygonDef paddle = new PolygonDef();
-        paddle.setAsBox(50.0f, 5.0f);
+        paddle.setAsBox(PADDLE_WIDTH, PADDLE_HEIGHT);
         paddle.density = 1.0f;
         paddle.friction = 0.08f;
         paddle.restitution = 0.0f;
@@ -180,7 +188,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 	private void addPongBall() {
 		BodyDef ballBodyDef = new BodyDef();
 		ballBodyDef.position.set(getWidth() / 2, getHeight() / 2);
-		Body ballBody = world.createBody(ballBodyDef);
+		pongBallBody = world.createBody(ballBodyDef);
 		
 		CircleDef ball = new CircleDef();
 		ball.radius = 5.0f;
@@ -188,10 +196,9 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		ball.restitution = 1.0f;
 		ball.friction = 0.0f;
 		
-		ballBody.createShape(ball);
-		ballBody.setMassFromShapes();
-		bodies.add(ballBody);
-		Log.i(TAG, "Added Pong ball at: (" + ballBody.getPosition().x + " ," + ballBody.getPosition().y + ")");
+		pongBallBody.createShape(ball);
+		pongBallBody.setMassFromShapes();
+		Log.i(TAG, "Added Pong ball at: (" + pongBallBody.getPosition().x + " ," + pongBallBody.getPosition().y + ")");
 	}
 	
 	private void drawPolygon(Canvas canvas, Paint mpaint) {
@@ -212,22 +219,32 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 	}
 	
 	public class ballLoop extends Thread {
+		private static final float SPEED_STANDARD = 10.0f;
+		private static final float SPEED_UP = 5.0f;
+		
 		private MotionEvent downEvent;
 		
+		// Flags
 		private boolean touchDown = false;
 		private boolean addBall = false;
 		private boolean scroll = false;
+		private boolean contact = false;
+		private boolean speedStandard = false;
+		private boolean speedUp = false;
 		
+		private float contactX;
+		private float contactY;
 		private float slide = 0.0f;
 		
 		private void slidePaddle(float slide) {
-			// Slide the paddle some x distance
 			float x = paddleBody.getXForm().position.x;
 			float y = paddleBody.getXForm().position.y;
-			if (x - slide > getWidth() - 51.0f)
-				paddleBody.setXForm(new Vec2(getWidth() - 49.0f, y), 0.0f);
-			else if (x - slide < 51.0f)
-				paddleBody.setXForm(new Vec2(51.0f, y), 0.0f);
+			
+			// Keep the paddle within the screen width
+			if (x - slide > getWidth() - PADDLE_WIDTH)
+				paddleBody.setXForm(new Vec2(getWidth() - PADDLE_WIDTH, y), 0.0f);
+			else if (x - slide < PADDLE_WIDTH)
+				paddleBody.setXForm(new Vec2(PADDLE_WIDTH, y), 0.0f);
 			else
 				paddleBody.setXForm(new Vec2(x - slide, y), 0.0f);
 			
@@ -252,10 +269,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 				createBoundary();
 				createPaddle();
 				addPongBall();
-				
-				for (Body b : bodies) {
-					b.setLinearVelocity(new Vec2(10.0f, 10.0f));
-				}
+				pongBallBody.setLinearVelocity(new Vec2(SPEED_STANDARD, SPEED_STANDARD));
 				
 				init = true;
 			}
@@ -267,14 +281,61 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 				addBall(downEvent.getX(), downEvent.getY());
 				addBall = false;
 			}
+			
 			if (scroll) {
 				slidePaddle(slide);
 				scroll = false;
 			}
+			
+			if (contact) {
+				// First check if the contact occurs at the player or computer side
+				// Math is mirrored depending on the side
+				// Note: Screen orientation is vertical!
+				// Combined height of ball and paddle is 20.0f
+				if (contactY > getHeight() - 25.0f) {
+					// Contact is at bottom half of screen (player half)
+					// Check if made contact with paddle
+					if(Math.abs(contactX - paddleBody.getPosition().x) <= PADDLE_WIDTH) {
+						// Ball hits the paddle
+						if(Math.abs(contactX - paddleBody.getPosition().x) <= 10.0f) {
+							// Contact is near the middle of the paddle
+							// Ball speed is set to STANDARD_SPEED
+							speedStandard = true;
+						} else {
+							// Contact is near the edge of the paddle
+							// Ball speed is sped up by SPEED_UP
+							speedUp = true;
+						}
+					}
+					
+					// Contact is not made with paddle
+					// Determine if ball hit the wall, or the ground
+					// TODO: What to do when ball hits the ground
+				} else if (contactY < 25.0f) {
+					// Contact is at top half of screen (computer half)
+				}
+				contact = false;
+			}
 		}
 		
 		private void updatePhysics() {
+			float x = pongBallBody.getLinearVelocity().x;
+			float y = pongBallBody.getLinearVelocity().y;
 			
+			if (speedStandard) {
+				if (x < 0)
+					pongBallBody.setLinearVelocity(new Vec2(SPEED_STANDARD * -1.0f, y));
+				else
+					pongBallBody.setLinearVelocity(new Vec2(SPEED_STANDARD, y));
+				speedStandard = false;
+			}
+			if (speedUp) {
+				if (x < 0)
+					pongBallBody.setLinearVelocity(new Vec2(x - SPEED_UP, y));
+				else
+					pongBallBody.setLinearVelocity(new Vec2(x + SPEED_UP, y));
+				speedUp = false;
+			}
 		}
 		
 		private void updateAnimation() {
@@ -290,12 +351,10 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 				synchronized (getHolder()) {
 					mpaint.setStyle(Paint.Style.FILL_AND_STROKE);
 					mpaint.setColor(Color.RED);
-					for (Body b : bodies) {
-						canvas.drawCircle(b.getPosition().x,
-										  b.getPosition().y,
-										  ((CircleShape) b.getShapeList()).getRadius(),
-										  mpaint);
-					}
+					canvas.drawCircle(pongBallBody.getPosition().x,
+									  pongBallBody.getPosition().y,
+									  ((CircleShape) pongBallBody.getShapeList()).getRadius(),
+									  mpaint);
 					mpaint.setStyle(Paint.Style.FILL);
 					mpaint.setColor(Color.BLACK);
 					drawPolygon(canvas, mpaint);
@@ -303,6 +362,11 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			} finally {
 				getHolder().unlockCanvasAndPost(canvas);
 			}
+		}
+		
+		private void setContact(float x, float y) {
+			contactX = x;
+			contactY = y;
 		}
 		
 		public void pause() {
@@ -340,6 +404,39 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		
 	}
 	
+	private class customListener implements ContactListener {
+		@Override
+		public void add(ContactPoint point) {
+			// TODO Auto-generated method stub
+			float x = point.position.x;
+			float y = point.position.y;
+			
+			loop.setContact(x, y);
+			loop.contact = true;
+			Log.i(TAG, "Contact made at (" + x + ", " + y + ")");
+			//Log.i(TAG, "add");
+			
+		}
+
+		@Override
+		public void persist(ContactPoint point) {
+			// TODO Auto-generated method stub
+			//Log.i(TAG, "persist");
+		}
+
+		@Override
+		public void remove(ContactPoint point) {
+			// TODO Auto-generated method stub
+			//Log.i(TAG, "remove");
+		}
+
+		@Override
+		public void result(ContactResult point) {
+			// TODO Auto-generated method stub
+			//Log.i(TAG, "result");
+		}
+	}
+	
 	public ballLoop getThread() {
 		return loop;
 	}
@@ -371,5 +468,4 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		loop.interrupt();
 		
 	}
-
 }
