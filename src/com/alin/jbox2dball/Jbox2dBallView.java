@@ -254,7 +254,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 				addPongBall();
 				
 				for (Body b : bodies) {
-					b.setLinearVelocity(new Vec2(30.0f, 30.0f));
+					b.setLinearVelocity(new Vec2(10.0f, 10.0f));
 				}
 				
 				init = true;
