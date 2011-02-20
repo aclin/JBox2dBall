@@ -280,6 +280,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			while(!isInterrupted()) {
 				updateState();
 				updateInput();
+				updateAI();
 				updatePhysics();
 				updateAnimation();
 				updateView();
@@ -341,26 +342,52 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 					// TODO: What to do when ball hits the ground
 				} else if (contactY < 25.0f) {
 					// Contact is at top half of screen (computer half)
+					// Check if made contact with paddle
+					if(Math.abs(contactX - computerBody.getPosition().x) <= PADDLE_WIDTH) {
+						// Ball hits the paddle
+						if(Math.abs(contactX - computerBody.getPosition().x) <= 10.0f) {
+							// Contact is near the middle of the paddle
+							// Ball speed is set to STANDARD_SPEED
+							speedStandard = true;
+						} else {
+							// Contact is near the edge of the paddle
+							// Ball speed is sped up by SPEED_UP
+							speedUp = true;
+						}
+					}
 				}
 				contact = false;
 			}
+		}
+		
+		/* Computer paddle is set to move horizontally at some linear velocity.
+		 * Velocity may be slower than the ball speed, but can reach by using
+		 * the width of the paddle.
+		 * All the computer will try to do is to close the x distance between
+		 * it and the ball.
+		 * The difficulty of the computer can be adjusted by how early the computer
+		 * begins to give chase, and how fast the computer moves horizontally.
+		 * */
+		private void updateAI() {
+			
 		}
 		
 		private void updatePhysics() {
 			float x = pongBallBody.getLinearVelocity().x;
 			float y = pongBallBody.getLinearVelocity().y;
 			
+			/* y divide by the absolute value of y gives the sign of y */
 			if (speedStandard) {
 				if (x < 0)
-					pongBallBody.setLinearVelocity(new Vec2(SPEED_STANDARD * -1.0f, y));
+					pongBallBody.setLinearVelocity(new Vec2(SPEED_STANDARD * -1.0f, SPEED_STANDARD * y / Math.abs(y)));
 				else
-					pongBallBody.setLinearVelocity(new Vec2(SPEED_STANDARD, y));
+					pongBallBody.setLinearVelocity(new Vec2(SPEED_STANDARD, SPEED_STANDARD * y / Math.abs(y)));
 				speedStandard = false;
 			} else if (speedUp) {
 				if (x < 0)
-					pongBallBody.setLinearVelocity(new Vec2(x - SPEED_UP, y));
+					pongBallBody.setLinearVelocity(new Vec2(x - SPEED_UP, SPEED_STANDARD * y / Math.abs(y)));
 				else
-					pongBallBody.setLinearVelocity(new Vec2(x + SPEED_UP, y));
+					pongBallBody.setLinearVelocity(new Vec2(x + SPEED_UP, SPEED_STANDARD * y / Math.abs(y)));
 				speedUp = false;
 			}
 		}
