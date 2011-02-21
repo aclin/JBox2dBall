@@ -84,19 +84,19 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		PolygonDef southWall = new PolygonDef();
 		PolygonDef westWall = new PolygonDef();
 		
-		Vec2 xOffset = new Vec2(getWidth() - 1.0f, 0.0f);
-		Vec2 yOffset = new Vec2(0.0f, getHeight() - 1.0f);
+		Vec2 xOffset = new Vec2(getWidth() - 2.0f, 0.0f);
+		Vec2 yOffset = new Vec2(0.0f, getHeight() - 2.0f);
 		Vec2 hrz[] = new Vec2[4];
 		Vec2 vrt[] = new Vec2[4];
 		
 		hrz[0] = new Vec2(0.0f, 0.0f);
 		hrz[1] = new Vec2(getWidth(), 0.0f);
-		hrz[2] = new Vec2(getWidth(), 1.0f);
-		hrz[3] = new Vec2(0.0f, 1.0f);
+		hrz[2] = new Vec2(getWidth(), 2.0f);
+		hrz[3] = new Vec2(0.0f, 2.0f);
 		
 		vrt[0] = new Vec2(0.0f, 0.0f);
-		vrt[1] = new Vec2(1.0f, 0.0f);
-		vrt[2] = new Vec2(1.0f, getHeight());
+		vrt[1] = new Vec2(2.0f, 0.0f);
+		vrt[2] = new Vec2(2.0f, getHeight());
 		vrt[3] = new Vec2(0.0f, getHeight());
 		
 		for (int i=0; i<hrz.length; i++) {
@@ -252,9 +252,9 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 	}
 	
 	public class ballLoop extends Thread {
-		private static final float SPEED_STANDARD = 10.0f;
-		private static final float SPEED_UP = 5.0f;
-		private static final float CHASE_DELAY_STANDARD = 8.0f;
+		private static final float SPEED_STANDARD = 8.0f;
+		private static final float SPEED_UP = 20.0f;
+		private static final float CHASE_DELAY_STANDARD = 9.0f;
 		
 		private MotionEvent downEvent;
 		
@@ -271,9 +271,9 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		private float slide = 0.0f;
 		private float chase = 0.0f;
 		
-		private void slidePaddle(float slide) {
-			float x = paddleBody.getXForm().position.x;
-			float y = paddleBody.getXForm().position.y;
+		private void slidePaddle() {
+			float x = paddleBody.getPosition().x;
+			float y = paddleBody.getPosition().y;
 			
 			// Keep the paddle within the screen width
 			if (x - slide > getWidth() - PADDLE_WIDTH)
@@ -285,7 +285,19 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			
 			Log.i(TAG, "Paddle slid to (" + paddleBody.getPosition().x + ", " + paddleBody.getPosition().y + ")");
 			Log.i(TAG, "Slide distance: " + slide);
-			Log.i(TAG, "Width: " + getWidth());
+		}
+		
+		private void chaseBall() {
+			float cx = computerBody.getPosition().x;
+			float cy = computerBody.getPosition().y;
+			
+			// Keep the paddle within the screen width
+			if (cx + chase / CHASE_DELAY_STANDARD > getWidth() - PADDLE_WIDTH)
+				computerBody.setXForm(new Vec2(getWidth() - PADDLE_WIDTH, cy), 0.0f);
+			else if (cx + chase / CHASE_DELAY_STANDARD < PADDLE_WIDTH)
+				computerBody.setXForm(new Vec2(PADDLE_WIDTH, cy), 0.0f);
+			else
+				computerBody.setXForm(new Vec2(cx + chase / CHASE_DELAY_STANDARD, cy), 0.0f);
 		}
 		
 		public void run() {
@@ -318,7 +330,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			
 			/* Check if scrolling occurred */
 			if (scroll) {
-				slidePaddle(slide);
+				slidePaddle();
 				scroll = false;
 			}
 			
@@ -366,11 +378,9 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			}
 		}
 		
-		/* Computer paddle is set to move horizontally at some linear velocity.
-		 * Velocity may be slower than the ball speed, but can reach by using
-		 * the width of the paddle.
-		 * All the computer will try to do is to close the x distance between
-		 * it and the ball.
+		/* Computer paddle is set to move to where the ball is with respect to the
+		 * x-axis, with some delay determine by CHASE_DELAY_STANDARD.
+		 * The smaller the delay, the quicker the computer.
 		 * The difficulty of the computer can be adjusted by how early the computer
 		 * begins to give chase, and how fast the computer moves horizontally.
 		 * */
@@ -385,7 +395,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			if (bvy < 0) {
 				// Check if the ball is passed the halfway point
 				if (by <= getHeight() / 2) {
-					chase = bx - cx;
+					chase = bx - cx; // Get the x distance between the ball and the center of the paddle
 				}
 			} else {
 				// The ball is heading away from the computer
@@ -397,10 +407,10 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		private void updatePhysics() {
 			float bvx = pongBallBody.getLinearVelocity().x;
 			float bvy = pongBallBody.getLinearVelocity().y;
-			float cx = computerBody.getPosition().x;
-			float cy = computerBody.getPosition().y;
 			
-			/* y divide by the absolute value of y gives the sign of y */
+			// y divide by the absolute value of y gives the sign of y
+			// Determine if the ball needs to maintain normal speed
+			// or speed up
 			if (speedStandard) {
 				if (bvx < 0)
 					pongBallBody.setLinearVelocity(new Vec2(SPEED_STANDARD * -1.0f, SPEED_STANDARD * bvy / Math.abs(bvy)));
@@ -409,13 +419,13 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 				speedStandard = false;
 			} else if (speedUp) {
 				if (bvx < 0)
-					pongBallBody.setLinearVelocity(new Vec2(bvx - SPEED_UP, SPEED_STANDARD * bvy / Math.abs(bvy)));
+					pongBallBody.setLinearVelocity(new Vec2(SPEED_UP * -1.0f, SPEED_UP * bvy / Math.abs(bvy)));
 				else
-					pongBallBody.setLinearVelocity(new Vec2(bvx + SPEED_UP, SPEED_STANDARD * bvy / Math.abs(bvy)));
+					pongBallBody.setLinearVelocity(new Vec2(SPEED_UP, SPEED_UP * bvy / Math.abs(bvy)));
 				speedUp = false;
 			}
 			
-			computerBody.setXForm(new Vec2(cx + chase / CHASE_DELAY_STANDARD, cy), 0.0f);
+			chaseBall();
 			
 		}
 		
