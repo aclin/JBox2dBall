@@ -103,8 +103,12 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			eastWall.addVertex(vrt[i].add(xOffset));
 		}
 		
-		eastWall.friction = 0.05f;
-		westWall.friction = 0.05f;
+		northWall.restitution = 0.0f;
+		eastWall.restitution = 0.0f;
+		southWall.restitution = 0.0f;
+		westWall.restitution = 0.0f;
+		eastWall.friction = 0.0f;
+		westWall.friction = 0.0f;
 		
 		boundaryBody.createShape(northWall);
 		boundaryBody.createShape(eastWall);
@@ -120,7 +124,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
         PolygonDef paddle = new PolygonDef();
         paddle.setAsBox(PADDLE_WIDTH, PADDLE_HEIGHT);
         paddle.density = 1.0f;
-        paddle.friction = 0.08f;
+        paddle.friction = 0.0f;
         paddle.restitution = 0.0f;
         paddleBody.createShape(paddle);
         Log.i(TAG, "Paddle created at (" + paddleBody.getPosition().x + ", " + paddleBody.getPosition().y + ")");
@@ -137,6 +141,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		computer.friction = 0.0f;
 		computer.restitution = 0.0f;
 		computerBody.createShape(computer);
+		//computerBody.setMassFromShapes();
 		Log.i(TAG, "Computer paddle created at (" + computerBody.getPosition().x + ", " + computerBody.getPosition().y + ")");
 	}
 	
@@ -209,7 +214,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		ball.radius = 5.0f;
 		ball.density = 1.0f;
 		ball.restitution = 1.0f;
-		ball.friction = 0.05f;
+		ball.friction = 0.0f;
 		
 		pongBallBody.createShape(ball);
 		pongBallBody.setMassFromShapes();
@@ -244,6 +249,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 	public class ballLoop extends Thread {
 		private static final float SPEED_STANDARD = 10.0f;
 		private static final float SPEED_UP = 5.0f;
+		private static final float CHASE_DELAY_STANDARD = 8.0f;
 		
 		private MotionEvent downEvent;
 		
@@ -258,6 +264,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		private float contactX;
 		private float contactY;
 		private float slide = 0.0f;
+		private float chase = 0.0f;
 		
 		private void slidePaddle(float slide) {
 			float x = paddleBody.getXForm().position.x;
@@ -369,27 +376,48 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		 * begins to give chase, and how fast the computer moves horizontally.
 		 * */
 		private void updateAI() {
-			
+			float bvx = pongBallBody.getLinearVelocity().x;
+			float bvy = pongBallBody.getLinearVelocity().y;
+			float bx = pongBallBody.getPosition().x;
+			float by = pongBallBody.getPosition().y;
+			float cx = computerBody.getPosition().x;
+			//Log.i(TAG, "Y velocity: " + bvy);
+			// Check if the ball is heading towards the computer first
+			if (bvy < 0) {
+				// Check if the ball is passed the halfway point
+				if (by <= getHeight() / 2) {
+					chase = bx - cx;
+				}
+			} else {
+				// The ball is heading away from the computer
+				// so it doesn't have to move
+				chase = 0.0f;
+			}
 		}
 		
 		private void updatePhysics() {
-			float x = pongBallBody.getLinearVelocity().x;
-			float y = pongBallBody.getLinearVelocity().y;
+			float bvx = pongBallBody.getLinearVelocity().x;
+			float bvy = pongBallBody.getLinearVelocity().y;
+			float cx = computerBody.getPosition().x;
+			float cy = computerBody.getPosition().y;
 			
 			/* y divide by the absolute value of y gives the sign of y */
 			if (speedStandard) {
-				if (x < 0)
-					pongBallBody.setLinearVelocity(new Vec2(SPEED_STANDARD * -1.0f, SPEED_STANDARD * y / Math.abs(y)));
+				if (bvx < 0)
+					pongBallBody.setLinearVelocity(new Vec2(SPEED_STANDARD * -1.0f, SPEED_STANDARD * bvy / Math.abs(bvy)));
 				else
-					pongBallBody.setLinearVelocity(new Vec2(SPEED_STANDARD, SPEED_STANDARD * y / Math.abs(y)));
+					pongBallBody.setLinearVelocity(new Vec2(SPEED_STANDARD, SPEED_STANDARD * bvy / Math.abs(bvy)));
 				speedStandard = false;
 			} else if (speedUp) {
-				if (x < 0)
-					pongBallBody.setLinearVelocity(new Vec2(x - SPEED_UP, SPEED_STANDARD * y / Math.abs(y)));
+				if (bvx < 0)
+					pongBallBody.setLinearVelocity(new Vec2(bvx - SPEED_UP, SPEED_STANDARD * bvy / Math.abs(bvy)));
 				else
-					pongBallBody.setLinearVelocity(new Vec2(x + SPEED_UP, SPEED_STANDARD * y / Math.abs(y)));
+					pongBallBody.setLinearVelocity(new Vec2(bvx + SPEED_UP, SPEED_STANDARD * bvy / Math.abs(bvy)));
 				speedUp = false;
 			}
+			
+			computerBody.setXForm(new Vec2(cx + chase / CHASE_DELAY_STANDARD, cy), 0.0f);
+			
 		}
 		
 		private void updateAnimation() {
