@@ -20,6 +20,7 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.media.MediaPlayer;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.GestureDetector;
@@ -48,11 +49,13 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 	
 	private ballLoop loop;
 	private GestureDetector gestureDetector;
+	private MediaPlayer mp;
 
 	public Jbox2dBallView(Context context, AttributeSet attrs) {
 		super(context, attrs);
 		getHolder().addCallback(this);
 		gestureDetector = new GestureDetector(context, new GestureListener());
+		mp = MediaPlayer.create(context, R.raw.beep);
 		loop = new ballLoop();
 	}
 	
@@ -107,7 +110,10 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		eastWall.restitution = 0.0f;
 		southWall.restitution = 0.0f;
 		westWall.restitution = 0.0f;
+		
+		northWall.friction = 0.0f;
 		eastWall.friction = 0.0f;
+		southWall.friction = 0.0f;
 		westWall.friction = 0.0f;
 		
 		boundaryBody.createShape(northWall);
@@ -141,7 +147,6 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		computer.friction = 0.0f;
 		computer.restitution = 0.0f;
 		computerBody.createShape(computer);
-		//computerBody.setMassFromShapes();
 		Log.i(TAG, "Computer paddle created at (" + computerBody.getPosition().x + ", " + computerBody.getPosition().y + ")");
 	}
 	
@@ -290,6 +295,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 				updateAI();
 				updatePhysics();
 				updateAnimation();
+				updateSound();
 				updateView();
 			}
 		}
@@ -309,12 +315,6 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		}
 		
 		private void updateInput() {
-			/*
-			if (addBall) {
-				addBall(downEvent.getX(), downEvent.getY());
-				addBall = false;
-			}
-			*/
 			
 			/* Check if scrolling occurred */
 			if (scroll) {
@@ -363,7 +363,6 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 						}
 					}
 				}
-				contact = false;
 			}
 		}
 		
@@ -424,6 +423,15 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			
 		}
 		
+		private void updateSound() {
+			
+			// If any contact is made, play a 'beep' sound 
+			if (contact) {
+				mp.start();
+				contact = false;
+			}
+		}
+		
 		private void updateView() {
 			Canvas canvas = getHolder().lockCanvas();
 			Paint mpaint = new Paint();
@@ -452,13 +460,17 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		}
 		
 		public void pause() {
-			// Activity paused, destroys everything
+			// Activity paused, destroys all JBox2D bodies
 			Body b = world.getBodyList();
 			for (int i=0; i<world.getBodyCount(); i++) {
 				world.destroyBody(b);
 				if (b.getNext() != null)
 					b = b.getNext();
 			}
+			
+			// Release MediaPlayer
+			mp.release();
+			
 			Log.i(TAG, "All bodies in world destroyed");
 		}
 	}
