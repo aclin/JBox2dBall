@@ -2,6 +2,7 @@ package com.alin.jbox2dball;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 import org.jbox2d.collision.AABB;
 import org.jbox2d.collision.CircleDef;
@@ -265,11 +266,15 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		private boolean contact = false;
 		private boolean speedStandard = false;
 		private boolean speedUp = false;
+		private boolean firstGuess = true;
+		private boolean secondGuess = false;
 		
 		private float contactX;
 		private float contactY;
 		private float slide = 0.0f;
 		private float chase = 0.0f;
+		
+		private Random r = new Random(System.currentTimeMillis());
 		
 		private void slidePaddle() {
 			float x = paddleBody.getPosition().x;
@@ -298,7 +303,21 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 				computerBody.setXForm(new Vec2(PADDLE_WIDTH, cy), 0.0f);
 			else
 				computerBody.setXForm(new Vec2(cx + chase, cy), 0.0f);
+		}
+		
+		private void guess() {
+			float bvx = pongBallBody.getLinearVelocity().x;
+			float bvy = pongBallBody.getLinearVelocity().y;
+			float bx = pongBallBody.getPosition().x;
+			float by = pongBallBody.getPosition().y;
+			float cx = computerBody.getPosition().x;
 			
+			if (r.nextFloat() < 0.5f) {
+				// Find how far the computer paddle has to travel
+				chase = (bvx * by / (bvy * -1.0f)) + (bx - cx) + (PADDLE_WIDTH * 2.0f * r.nextFloat());
+			} else {
+				chase = (bvx * by / (bvy * -1.0f)) + (bx - cx) - (PADDLE_WIDTH * 2.0f * r.nextFloat());
+			}
 		}
 		
 		public void run() {
@@ -394,13 +413,21 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			// Check if the ball is heading towards the computer first
 			if (bvy < 0) {
 				// Check if the ball is passed the halfway point
-				if (by < getHeight() / 2) {
-					chase = (bvx * by / (bvy * -1.0f)) + (bx - cx);
+				if (by < getHeight() / 2 && firstGuess) {
+					guess();
+					firstGuess = false;
+					secondGuess = true;
+				} else if (by < 50.0f && secondGuess) {
+					guess();
+					secondGuess = false;
+				} else {
+					chase = 0.0f;
 				}
 			} else {
 				// The ball is heading away from the computer
-				// so it doesn't have to move
+				// so it doesn't have to move and firstGuess is reset
 				chase = 0.0f;
+				firstGuess = true;
 			}
 		}
 		
