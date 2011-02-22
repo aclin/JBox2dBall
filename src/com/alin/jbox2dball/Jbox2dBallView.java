@@ -147,6 +147,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		computer.friction = 0.0f;
 		computer.restitution = 0.0f;
 		computerBody.createShape(computer);
+		computerBody.setMassFromShapes();
 		Log.i(TAG, "Computer paddle created at (" + computerBody.getPosition().x + ", " + computerBody.getPosition().y + ")");
 	}
 	
@@ -253,7 +254,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 	
 	public class ballLoop extends Thread {
 		private static final float SPEED_STANDARD = 8.0f;
-		private static final float SPEED_UP = 20.0f;
+		private static final float SPEED_UP = 2.0f;
 		private static final float CHASE_DELAY_STANDARD = 9.0f;
 		
 		private MotionEvent downEvent;
@@ -298,6 +299,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 				computerBody.setXForm(new Vec2(PADDLE_WIDTH, cy), 0.0f);
 			else
 				computerBody.setXForm(new Vec2(cx + chase / CHASE_DELAY_STANDARD, cy), 0.0f);
+			
 		}
 		
 		public void run() {
@@ -394,7 +396,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			// Check if the ball is heading towards the computer first
 			if (bvy < 0) {
 				// Check if the ball is passed the halfway point
-				if (by <= getHeight() / 2) {
+				if (by < getHeight() / 2) {
 					chase = bx - cx; // Get the x distance between the ball and the center of the paddle
 				}
 			} else {
@@ -419,9 +421,9 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 				speedStandard = false;
 			} else if (speedUp) {
 				if (bvx < 0)
-					pongBallBody.setLinearVelocity(new Vec2(SPEED_UP * -1.0f, SPEED_UP * bvy / Math.abs(bvy)));
+					pongBallBody.setLinearVelocity(new Vec2(bvx - SPEED_UP, bvy + SPEED_UP * bvy / Math.abs(bvy)));
 				else
-					pongBallBody.setLinearVelocity(new Vec2(SPEED_UP, SPEED_UP * bvy / Math.abs(bvy)));
+					pongBallBody.setLinearVelocity(new Vec2(bvx + SPEED_UP, bvy + SPEED_UP * bvy / Math.abs(bvy)));
 				speedUp = false;
 			}
 			
