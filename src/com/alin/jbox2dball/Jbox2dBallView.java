@@ -147,7 +147,6 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		computer.friction = 0.0f;
 		computer.restitution = 0.0f;
 		computerBody.createShape(computer);
-		computerBody.setMassFromShapes();
 		Log.i(TAG, "Computer paddle created at (" + computerBody.getPosition().x + ", " + computerBody.getPosition().y + ")");
 	}
 	
@@ -293,12 +292,12 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			float cy = computerBody.getPosition().y;
 			
 			// Keep the paddle within the screen width
-			if (cx + chase / CHASE_DELAY_STANDARD > getWidth() - PADDLE_WIDTH)
+			if (cx + chase > getWidth() - PADDLE_WIDTH)
 				computerBody.setXForm(new Vec2(getWidth() - PADDLE_WIDTH, cy), 0.0f);
-			else if (cx + chase / CHASE_DELAY_STANDARD < PADDLE_WIDTH)
+			else if (cx + chase < PADDLE_WIDTH)
 				computerBody.setXForm(new Vec2(PADDLE_WIDTH, cy), 0.0f);
 			else
-				computerBody.setXForm(new Vec2(cx + chase / CHASE_DELAY_STANDARD, cy), 0.0f);
+				computerBody.setXForm(new Vec2(cx + chase, cy), 0.0f);
 			
 		}
 		
@@ -380,11 +379,10 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			}
 		}
 		
-		/* Computer paddle is set to move to where the ball is with respect to the
-		 * x-axis, with some delay determine by CHASE_DELAY_STANDARD.
-		 * The smaller the delay, the quicker the computer.
-		 * The difficulty of the computer can be adjusted by how early the computer
-		 * begins to give chase, and how fast the computer moves horizontally.
+		/* The computer paddle will calculate where the pong ball will land along
+		 * the x-axis using the ball's linear velocity, since it is constant.
+		 * The computer paddle will then move to that point with some error margin,
+		 * which can cause the paddle to stop short or over shoot.
 		 * */
 		private void updateAI() {
 			float bvx = pongBallBody.getLinearVelocity().x;
@@ -392,12 +390,12 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			float bx = pongBallBody.getPosition().x;
 			float by = pongBallBody.getPosition().y;
 			float cx = computerBody.getPosition().x;
-			//Log.i(TAG, "Y velocity: " + bvy);
+			
 			// Check if the ball is heading towards the computer first
 			if (bvy < 0) {
 				// Check if the ball is passed the halfway point
 				if (by < getHeight() / 2) {
-					chase = bx - cx; // Get the x distance between the ball and the center of the paddle
+					chase = (bvx * by / (bvy * -1.0f)) + (bx - cx);
 				}
 			} else {
 				// The ball is heading away from the computer
