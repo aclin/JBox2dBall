@@ -125,7 +125,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 	
 	private void createPaddle() {
 		BodyDef paddleBodyDef = new BodyDef();
-		paddleBodyDef.position.set(getWidth() / 2, getHeight() - 10.0f);
+		paddleBodyDef.position.set(getWidth() / 2, getHeight() - 50.0f);
         paddleBody = world.createBody(paddleBodyDef);
         
         PolygonDef paddle = new PolygonDef();
@@ -139,7 +139,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 	
 	private void createComputerPaddle() {
 		BodyDef paddleBodyDef = new BodyDef();
-		paddleBodyDef.position.set(getWidth() / 2, 10.0f);
+		paddleBodyDef.position.set(getWidth() / 2, 50.0f);
 		computerBody = world.createBody(paddleBodyDef);
 		
 		PolygonDef computer = new PolygonDef();
@@ -320,6 +320,10 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			}
 		}
 		
+		private void reset() {
+			pongBallBody.setXForm(new Vec2(getWidth() / 2, getHeight() / 2), 0.0f);
+		}
+		
 		public void run() {
 			while(!isInterrupted()) {
 				updateState();
@@ -343,6 +347,11 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 				
 				init = true;
 			}
+			
+			if (pongBallBody.getPosition().y < 50.0f || pongBallBody.getPosition().y > getHeight() - 50.0f) {
+				reset();
+			}
+			
 			world.step(timeStep, iterations);
 		}
 		

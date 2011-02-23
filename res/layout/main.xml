@@ -7,7 +7,6 @@
     >
 <com.alin.jbox2dball.Jbox2dBallView android:id="@+id/jbox2dBall_view"
 	android:layout_height="fill_parent"
-	android:layout_width="fill_parent"
-	android:layout_margin="30px"/>
+	android:layout_width="fill_parent"/>
 	
 </LinearLayout>
