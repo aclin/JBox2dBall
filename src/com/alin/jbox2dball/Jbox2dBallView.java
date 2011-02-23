@@ -18,8 +18,11 @@ import org.jbox2d.dynamics.contacts.ContactPoint;
 import org.jbox2d.dynamics.contacts.ContactResult;
 
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.media.MediaPlayer;
 import android.util.AttributeSet;
@@ -50,14 +53,12 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 	
 	private ballLoop loop;
 	private GestureDetector gestureDetector;
-	private MediaPlayer mp;
 
 	public Jbox2dBallView(Context context, AttributeSet attrs) {
 		super(context, attrs);
 		getHolder().addCallback(this);
 		gestureDetector = new GestureDetector(context, new GestureListener());
-		mp = MediaPlayer.create(context, R.raw.beep);
-		loop = new ballLoop();
+		loop = new ballLoop(getHolder(), context);
 	}
 	
 	// Initialize this world
@@ -275,6 +276,15 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		private float chase = 0.0f;
 		
 		private Random r = new Random(System.currentTimeMillis());
+		private MediaPlayer mp;
+		private Bitmap mBackgroundImage;
+		private Bitmap newBg;
+		private Matrix bgMatrix;
+		
+		public ballLoop(SurfaceHolder surfaceHolder, Context context) {
+			mp = MediaPlayer.create(context, R.raw.beep);
+			mBackgroundImage = BitmapFactory.decodeResource(context.getResources(), R.drawable.pong_bg);
+		}
 		
 		private void slidePaddle() {
 			float x = paddleBody.getPosition().x;
@@ -320,6 +330,18 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			}
 		}
 		
+		private void scaleBG() {
+			bgMatrix = new Matrix();
+			int width = mBackgroundImage.getWidth();
+			int height = mBackgroundImage.getHeight();
+			Log.i(TAG, "oldBG width: " + width + " oldBG height: " + height);
+			int newWidth = getWidth();
+			int newHeight = getHeight();
+			Log.i(TAG, "newBG width: " + newWidth + " newBG height: " + newHeight);
+			bgMatrix.postScale(((float) newWidth) / width, ((float) newHeight) / height);
+			newBg = Bitmap.createBitmap(mBackgroundImage, 0, 0, width, height, bgMatrix, true);
+		}
+		
 		private void reset() {
 			pongBallBody.setXForm(new Vec2(getWidth() / 2, getHeight() / 2), 0.0f);
 		}
@@ -340,6 +362,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			if (!init) {
 				createWorld();
 				createBoundary();
+				scaleBG();
 				createPaddle();
 				createComputerPaddle();
 				addPongBall();
@@ -481,18 +504,18 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		private void updateView() {
 			Canvas canvas = getHolder().lockCanvas();
 			Paint mpaint = new Paint();
-			canvas.clipRect(0, 0, getWidth(), getHeight());
-			canvas.drawColor(Color.WHITE);
+			//canvas.clipRect(0, 0, getWidth(), getHeight());
+			//canvas.drawColor(Color.WHITE);
+			canvas.drawBitmap(newBg, 0, 0, null);
 			try {
 				synchronized (getHolder()) {
 					mpaint.setStyle(Paint.Style.FILL_AND_STROKE);
-					mpaint.setColor(Color.RED);
+					mpaint.setColor(Color.WHITE);
 					canvas.drawCircle(pongBallBody.getPosition().x,
 									  pongBallBody.getPosition().y,
 									  ((CircleShape) pongBallBody.getShapeList()).getRadius(),
 									  mpaint);
 					mpaint.setStyle(Paint.Style.FILL);
-					mpaint.setColor(Color.BLACK);
 					drawPaddle(canvas, mpaint);
 				}
 			} finally {
