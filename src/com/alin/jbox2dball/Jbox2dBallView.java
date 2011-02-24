@@ -212,22 +212,6 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		Log.i(TAG, "Added 1 ball at: (" + x + " ," + y + ")");
 	}
 	
-	private void addPongBall() {
-		BodyDef ballBodyDef = new BodyDef();
-		ballBodyDef.position.set(getWidth() / 2, getHeight() / 2);
-		pongBallBody = world.createBody(ballBodyDef);
-		
-		CircleDef ball = new CircleDef();
-		ball.radius = 5.0f;
-		ball.density = 1.0f;
-		ball.restitution = 1.0f;
-		ball.friction = 0.0f;
-		
-		pongBallBody.createShape(ball);
-		pongBallBody.setMassFromShapes();
-		Log.i(TAG, "Added Pong ball at: (" + pongBallBody.getPosition().x + " ," + pongBallBody.getPosition().y + ")");
-	}
-	
 	private void drawPaddle(Canvas canvas, Paint mpaint) {
 		// TODO: Come up with more efficient way to draw polygons
 		PolygonShape ps;
@@ -272,6 +256,9 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		
 		private float contactX;
 		private float contactY;
+		private float speed_Standard_X;
+		private float speed_Standard_Y;
+		private float speed_Up;
 		private float slide = 0.0f;
 		private float chase = 0.0f;
 		
@@ -284,6 +271,49 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		public ballLoop(SurfaceHolder surfaceHolder, Context context) {
 			mp = MediaPlayer.create(context, R.raw.beep);
 			mBackgroundImage = BitmapFactory.decodeResource(context.getResources(), R.drawable.pong_bg);
+		}
+		
+		private void addPongBall() {
+			BodyDef ballBodyDef = new BodyDef();
+			ballBodyDef.position.set(getWidth() / 2, getHeight() / 2);
+			pongBallBody = world.createBody(ballBodyDef);
+			
+			CircleDef ball = new CircleDef();
+			ball.radius = 5.0f;
+			ball.density = 1.0f;
+			ball.restitution = 1.0f;
+			ball.friction = 0.0f;
+			
+			pongBallBody.createShape(ball);
+			pongBallBody.setMassFromShapes();
+			
+			// Add 5.0f to make sure the speed is at least 5.0f
+			speed_Standard_X = r.nextFloat() * 10.0f + 5.0f;
+			speed_Standard_Y = r.nextFloat() * 10.0f + 5.0f;
+			
+			int rand = r.nextInt() % 4;
+			switch (rand) {
+			case 0:
+				pongBallBody.setLinearVelocity(new Vec2(speed_Standard_X, speed_Standard_Y));
+				break;
+			case 1:
+				pongBallBody.setLinearVelocity(new Vec2(-speed_Standard_X, speed_Standard_Y));
+				break;
+			case 2:
+				pongBallBody.setLinearVelocity(new Vec2(-speed_Standard_X, -speed_Standard_Y));
+				break;
+			case 3:
+				pongBallBody.setLinearVelocity(new Vec2(speed_Standard_X, -speed_Standard_Y));
+				break;
+			default:
+				pongBallBody.setLinearVelocity(new Vec2(speed_Standard_X, speed_Standard_Y));
+			}
+			//pongBallBody.setLinearVelocity(new Vec2(SPEED_STANDARD, SPEED_STANDARD));
+			Log.i(TAG, "Added Pong ball at: (" + pongBallBody.getPosition().x + " ," + pongBallBody.getPosition().y + ")");
+		}
+		
+		private void destroyPongBall() {
+			world.destroyBody(pongBallBody);
 		}
 		
 		private void slidePaddle() {
@@ -324,9 +354,9 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			
 			if (r.nextFloat() < 0.5f) {
 				// Find how far the computer paddle has to travel
-				chase = (bvx * by / (bvy * -1.0f)) + (bx - cx) + (PADDLE_WIDTH * 2.0f * r.nextFloat());
+				chase = (bvx * (by - 50.0f) / (bvy * -1.0f)) + (bx - cx) + (PADDLE_WIDTH * 2.0f * r.nextFloat());
 			} else {
-				chase = (bvx * by / (bvy * -1.0f)) + (bx - cx) - (PADDLE_WIDTH * 2.0f * r.nextFloat());
+				chase = (bvx * (by - 50.0f) / (bvy * -1.0f)) + (bx - cx) - (PADDLE_WIDTH * 2.0f * r.nextFloat());
 			}
 		}
 		
@@ -334,16 +364,17 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			bgMatrix = new Matrix();
 			int width = mBackgroundImage.getWidth();
 			int height = mBackgroundImage.getHeight();
-			Log.i(TAG, "oldBG width: " + width + " oldBG height: " + height);
 			int newWidth = getWidth();
 			int newHeight = getHeight();
-			Log.i(TAG, "newBG width: " + newWidth + " newBG height: " + newHeight);
 			bgMatrix.postScale(((float) newWidth) / width, ((float) newHeight) / height);
 			newBg = Bitmap.createBitmap(mBackgroundImage, 0, 0, width, height, bgMatrix, true);
 		}
 		
 		private void reset() {
-			pongBallBody.setXForm(new Vec2(getWidth() / 2, getHeight() / 2), 0.0f);
+			destroyPongBall();
+			addPongBall();
+			firstGuess = true;
+			secondGuess = false;
 		}
 		
 		public void run() {
@@ -366,7 +397,6 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 				createPaddle();
 				createComputerPaddle();
 				addPongBall();
-				pongBallBody.setLinearVelocity(new Vec2(SPEED_STANDARD, SPEED_STANDARD));
 				
 				init = true;
 			}
@@ -407,10 +437,6 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 							speedUp = true;
 						}
 					}
-					
-					// Contact is not made with paddle
-					// Determine if ball hit the wall, or the ground
-					// TODO: What to do when ball hits the ground
 				} else if (contactY < 25.0f) {
 					// Contact is at top half of screen (computer half)
 					// Check if made contact with paddle
@@ -449,7 +475,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 					guess();
 					firstGuess = false;
 					secondGuess = true;
-				} else if (by < 50.0f && secondGuess) {
+				} else if (by < 90.0f && secondGuess) {
 					guess();
 					secondGuess = false;
 				} else {
@@ -472,9 +498,9 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			// or speed up
 			if (speedStandard) {
 				if (bvx < 0)
-					pongBallBody.setLinearVelocity(new Vec2(SPEED_STANDARD * -1.0f, SPEED_STANDARD * bvy / Math.abs(bvy)));
+					pongBallBody.setLinearVelocity(new Vec2(-speed_Standard_X, speed_Standard_Y * bvy / Math.abs(bvy)));
 				else
-					pongBallBody.setLinearVelocity(new Vec2(SPEED_STANDARD, SPEED_STANDARD * bvy / Math.abs(bvy)));
+					pongBallBody.setLinearVelocity(new Vec2(speed_Standard_X, speed_Standard_Y * bvy / Math.abs(bvy)));
 				speedStandard = false;
 			} else if (speedUp) {
 				if (bvx < 0)
