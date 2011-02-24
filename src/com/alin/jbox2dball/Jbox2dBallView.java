@@ -262,6 +262,9 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		private float slide = 0.0f;
 		private float chase = 0.0f;
 		
+		private int playerScore = 0;
+		private int computerScore = 0;
+		
 		private Random r = new Random(System.currentTimeMillis());
 		private MediaPlayer mp;
 		private Bitmap mBackgroundImage;
@@ -401,7 +404,11 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 				init = true;
 			}
 			
-			if (pongBallBody.getPosition().y < 50.0f || pongBallBody.getPosition().y > getHeight() - 50.0f) {
+			if (pongBallBody.getPosition().y < 50.0f) {
+				playerScore++;
+				reset();
+			} else if (pongBallBody.getPosition().y > getHeight() - 50.0f) {
+				computerScore++;
 				reset();
 			}
 			
@@ -543,6 +550,8 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 									  mpaint);
 					mpaint.setStyle(Paint.Style.FILL);
 					drawPaddle(canvas, mpaint);
+					canvas.drawText(Integer.toString(playerScore), getWidth() / 2, getHeight() / 2 + 50.0f, mpaint);
+					canvas.drawText(Integer.toString(computerScore), getWidth() / 2, getHeight() / 2 - 50.0f, mpaint);
 				}
 			} finally {
 				getHolder().unlockCanvasAndPost(canvas);
