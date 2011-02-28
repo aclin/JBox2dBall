@@ -25,6 +25,8 @@ import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.media.MediaPlayer;
+import android.os.Handler;
+import android.os.Message;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.GestureDetector;
@@ -32,6 +34,7 @@ import android.view.GestureDetector.SimpleOnGestureListener;
 import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+import android.widget.TextView;
 
 public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callback {
 	private static final String TAG = "Jbox2dBallView";
@@ -51,14 +54,22 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 	private Body paddleBody, computerBody, pongBallBody;
 	private CircleDef ball;
 	
-	private ballLoop loop;
 	private GestureDetector gestureDetector;
+	private TextView mStatusText;
+	private ballLoop loop;
 
 	public Jbox2dBallView(Context context, AttributeSet attrs) {
 		super(context, attrs);
 		getHolder().addCallback(this);
 		gestureDetector = new GestureDetector(context, new GestureListener());
-		loop = new ballLoop(getHolder(), context);
+		loop = new ballLoop(getHolder(), context, new Handler() {
+            @Override
+            public void handleMessage(Message m) {
+                mStatusText.setVisibility(m.getData().getInt("viz"));
+                mStatusText.setText(m.getData().getString("text"));
+            }
+        });
+
 	}
 	
 	// Initialize this world
@@ -260,6 +271,8 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		private boolean speedUp = false;
 		private boolean firstGuess = true;
 		private boolean secondGuess = false;
+		private boolean playScore = false;
+		private boolean playFail = false;
 		
 		private float contactX;
 		private float contactY;
@@ -281,7 +294,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		private Bitmap newBg;
 		private Matrix bgMatrix;
 		
-		public ballLoop(SurfaceHolder surfaceHolder, Context context) {
+		public ballLoop(SurfaceHolder surfaceHolder, Context context, Handler handler) {
 			mpBump = MediaPlayer.create(context, R.raw.beep);
 			mpScore = MediaPlayer.create(context, R.raw.score);
 			mpFail = MediaPlayer.create(context, R.raw.fail);
@@ -555,11 +568,11 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			
 			if (pongBallBody.getPosition().y < 50.0f) {
 				playerScore++;
-				mpScore.start();
+				playScore = true;
 				setState(STATE_RESET);
 			} else if (pongBallBody.getPosition().y > getHeight() - 50.0f) {
 				computerScore++;
-				mpFail.start();
+				playFail = true;
 				setState(STATE_RESET);
 			}
 			
@@ -580,6 +593,16 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			if (contact) {
 				mpBump.start();
 				contact = false;
+			}
+			
+			if (playScore) {
+				mpScore.start();
+				playScore = false;
+			}
+			
+			if (playFail) {;
+				mpFail.start();
+				playFail = false;
 			}
 		}
 		
