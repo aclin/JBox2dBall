@@ -18,6 +18,7 @@ import org.jbox2d.dynamics.contacts.ContactPoint;
 import org.jbox2d.dynamics.contacts.ContactResult;
 
 import android.content.Context;
+import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
@@ -25,6 +26,7 @@ import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.media.MediaPlayer;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.util.AttributeSet;
@@ -34,25 +36,15 @@ import android.view.GestureDetector.SimpleOnGestureListener;
 import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+import android.view.View;
 import android.widget.TextView;
 
 public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callback {
 	private static final String TAG = "Jbox2dBallView";
-	private static final float PADDLE_WIDTH = 30.0f; // Note this is half-width, total is 60.0f
-	private static final float PADDLE_HEIGHT = 5.0f; // Note this is half-height, total is 10.0f
+	
 	public float targetFPS = 40.0f;
 	public float timeStep = (10.0f / targetFPS);  
 	public int iterations = 5;
-	
-	private boolean init = false;
-	
-	private World world;
-	private AABB worldAABB;
-	private BodyDef groundBodyDef = new BodyDef();
-	private List<Body> bodies = new ArrayList<Body>();
-	private Body groundBody;
-	private Body paddleBody, computerBody, pongBallBody;
-	private CircleDef ball;
 	
 	private GestureDetector gestureDetector;
 	private TextView mStatusText;
@@ -71,98 +63,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
         });
 
 	}
-	
-	// Initialize this world
-	public void createWorld() {
-		worldAABB = new AABB();
-		worldAABB.lowerBound.set(new Vec2(0.0f, 0.0f));
-		worldAABB.upperBound.set(new Vec2(getWidth(), getHeight()));
-		
-		//Vec2 gravity = new Vec2(0.0f, 9.8f);
-		Vec2 gravity = new Vec2(0.0f, 0.0f); // Zero-gravity environment, all velocities persists
-		boolean doSleep = true;
-		world = new World(worldAABB, gravity, doSleep);
-		world.setContactListener(new customListener());
-	}
-	
-	private void createBoundary() {
-		// Create a boundary so objects on the screen doesn't fall out of view
-		// TODO: Find better way to define boundary
-		BodyDef boundaryDef = new BodyDef();
-		boundaryDef.position.set(world.getWorldAABB().lowerBound);
-		Body boundaryBody = world.createBody(boundaryDef);
-		
-		PolygonDef northWall = new PolygonDef();
-		PolygonDef eastWall = new PolygonDef();
-		PolygonDef southWall = new PolygonDef();
-		PolygonDef westWall = new PolygonDef();
-		
-		Vec2 xOffset = new Vec2(getWidth() - 2.0f, 0.0f);
-		Vec2 yOffset = new Vec2(0.0f, getHeight() - 2.0f);
-		Vec2 hrz[] = new Vec2[4];
-		Vec2 vrt[] = new Vec2[4];
-		
-		hrz[0] = new Vec2(0.0f, 0.0f);
-		hrz[1] = new Vec2(getWidth(), 0.0f);
-		hrz[2] = new Vec2(getWidth(), 2.0f);
-		hrz[3] = new Vec2(0.0f, 2.0f);
-		
-		vrt[0] = new Vec2(0.0f, 0.0f);
-		vrt[1] = new Vec2(2.0f, 0.0f);
-		vrt[2] = new Vec2(2.0f, getHeight());
-		vrt[3] = new Vec2(0.0f, getHeight());
-		
-		for (int i=0; i<hrz.length; i++) {
-			northWall.addVertex(hrz[i]);
-			southWall.addVertex(hrz[i].add(yOffset));
-			westWall.addVertex(vrt[i]);
-			eastWall.addVertex(vrt[i].add(xOffset));
-		}
-		
-		northWall.restitution = 0.0f;
-		eastWall.restitution = 0.0f;
-		southWall.restitution = 0.0f;
-		westWall.restitution = 0.0f;
-		
-		northWall.friction = 0.0f;
-		eastWall.friction = 0.0f;
-		southWall.friction = 0.0f;
-		westWall.friction = 0.0f;
-		
-		boundaryBody.createShape(northWall);
-		boundaryBody.createShape(eastWall);
-		boundaryBody.createShape(southWall);
-		boundaryBody.createShape(westWall);
-	}
-	
-	private void createPaddle() {
-		BodyDef paddleBodyDef = new BodyDef();
-		paddleBodyDef.position.set(getWidth() / 2, getHeight() - 50.0f);
-        paddleBody = world.createBody(paddleBodyDef);
-        
-        PolygonDef paddle = new PolygonDef();
-        paddle.setAsBox(PADDLE_WIDTH, PADDLE_HEIGHT);
-        paddle.density = 1.0f;
-        paddle.friction = 0.0f;
-        paddle.restitution = 0.0f;
-        paddleBody.createShape(paddle);
-        Log.i(TAG, "Paddle created at (" + paddleBody.getPosition().x + ", " + paddleBody.getPosition().y + ")");
-	}
-	
-	private void createComputerPaddle() {
-		BodyDef paddleBodyDef = new BodyDef();
-		paddleBodyDef.position.set(getWidth() / 2, 50.0f);
-		computerBody = world.createBody(paddleBodyDef);
-		
-		PolygonDef computer = new PolygonDef();
-		computer.setAsBox(PADDLE_WIDTH, PADDLE_HEIGHT);
-		computer.density = 1.0f;
-		computer.friction = 0.0f;
-		computer.restitution = 0.0f;
-		computerBody.createShape(computer);
-		Log.i(TAG, "Computer paddle created at (" + computerBody.getPosition().x + ", " + computerBody.getPosition().y + ")");
-	}
-	
+	/*
 	private void rain() {
 		CircleDef ball = new CircleDef();
 		ball.radius = 2.0f;
@@ -223,45 +124,39 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		Log.i(TAG, "Added 1 ball at: (" + x + " ," + y + ")");
 	}
 	
-	private void drawPaddle(Canvas canvas, Paint mpaint) {
-		// TODO: Come up with more efficient way to draw polygons
-		PolygonShape ps;
-		
-		/* Draw player paddle */
-		ps = (PolygonShape) paddleBody.getShapeList();
-		canvas.drawRect(ps.getVertices()[0].x + paddleBody.getPosition().x,
-						ps.getVertices()[0].y + paddleBody.getPosition().y,
-						ps.getVertices()[2].x + paddleBody.getPosition().x,
-						ps.getVertices()[2].y + paddleBody.getPosition().y,
-						mpaint);
-		/* Draw computer paddle */
-		ps = (PolygonShape) computerBody.getShapeList();
-		canvas.drawRect(ps.getVertices()[0].x + computerBody.getPosition().x,
-						ps.getVertices()[0].y + computerBody.getPosition().y,
-						ps.getVertices()[2].x + computerBody.getPosition().x,
-						ps.getVertices()[2].y + computerBody.getPosition().y,
-						mpaint);
-	}
-	
 	// Set world gravity
 	public void setGravity(float gx, float gy) {
 		world.setGravity(new Vec2(gx, gy));
 	}
-	
+	*/
 	public class ballLoop extends Thread {
-		// States
-		private static final int STATE_START = 0;
-		private static final int STATE_RESET = 1;
-		private static final int PLAYER_WINS = 2;
-		private static final int COMPUTER_WINS = 3; 
+		// Keys
+		private static final String KEY_PLAYER_X = "playerX";
+		private static final String KEY_PLAYER_Y = "playerY";
+		private static final String KEY_COMPUTER_X = "computerX";
+		private static final String KEY_COMPUTER_Y = "computerY";
+		private static final String KEY_BALL_X = "ballX";
+		private static final String KEY_BALL_Y = "ballY";
+		private static final String KEY_PLAYER_SCORE = "playScore";
+		private static final String KEY_COMPUTER_SCORE = "computerScore";
 		
+		// States
+		public static final int STATE_READY = 0;
+		public static final int STATE_RUN = 1;
+		public static final int STATE_WIN = 2;
+		public static final int STATE_LOSE = 3;
+		public static final int STATE_RESET = 4;
+		public static final int STATE_PAUSE = 5;
+		
+		// Other constants
+		private static final float PADDLE_WIDTH = 30.0f; // Note this is half-width, total is 60.0f
+		private static final float PADDLE_HEIGHT = 5.0f; // Note this is half-height, total is 10.0f
 		private static final float SPEED_STANDARD = 8.0f;
 		private static final float SPEED_UP = 2.0f;
 		private static final float CHASE_DELAY_STANDARD = 9.0f;
 		
-		private MotionEvent downEvent;
-		
 		// Flags
+		private boolean init = true;
 		private boolean mRun = false;
 		private boolean touchDown = false;
 		private boolean addBall = false;
@@ -286,6 +181,9 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		private int computerScore = 0;
 		private int state;
 		
+		private Context mContext;
+		private Handler mHandler;
+		private MotionEvent downEvent;
 		private Random r = new Random(System.currentTimeMillis());
 		private MediaPlayer mpBump;
 		private MediaPlayer mpScore;
@@ -294,11 +192,134 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		private Bitmap newBg;
 		private Matrix bgMatrix;
 		
+		// JBox2D bodies
+		private World world;
+		private AABB worldAABB;
+		private BodyDef groundBodyDef = new BodyDef();
+		private List<Body> bodies = new ArrayList<Body>();
+		private Body groundBody;
+		private Body paddleBody, computerBody, pongBallBody;
+		private CircleDef ball;
+		
 		public ballLoop(SurfaceHolder surfaceHolder, Context context, Handler handler) {
+			mContext = context;
+			mHandler = handler;
+			
 			mpBump = MediaPlayer.create(context, R.raw.beep);
 			mpScore = MediaPlayer.create(context, R.raw.score);
 			mpFail = MediaPlayer.create(context, R.raw.fail);
 			mBackgroundImage = BitmapFactory.decodeResource(context.getResources(), R.drawable.pong_bg);
+		}
+		
+		// Initialize this world
+		public void createWorld() {
+			worldAABB = new AABB();
+			worldAABB.lowerBound.set(new Vec2(0.0f, 0.0f));
+			worldAABB.upperBound.set(new Vec2(getWidth(), getHeight()));
+			
+			//Vec2 gravity = new Vec2(0.0f, 9.8f);
+			Vec2 gravity = new Vec2(0.0f, 0.0f); // Zero-gravity environment, all velocities persists
+			boolean doSleep = true;
+			world = new World(worldAABB, gravity, doSleep);
+			world.setContactListener(new customListener());
+		}
+		
+		private void createBoundary() {
+			// Create a boundary so objects on the screen doesn't fall out of view
+			// TODO: Find better way to define boundary
+			BodyDef boundaryDef = new BodyDef();
+			boundaryDef.position.set(world.getWorldAABB().lowerBound);
+			Body boundaryBody = world.createBody(boundaryDef);
+			
+			PolygonDef northWall = new PolygonDef();
+			PolygonDef eastWall = new PolygonDef();
+			PolygonDef southWall = new PolygonDef();
+			PolygonDef westWall = new PolygonDef();
+			
+			Vec2 xOffset = new Vec2(getWidth() - 2.0f, 0.0f);
+			Vec2 yOffset = new Vec2(0.0f, getHeight() - 2.0f);
+			Vec2 hrz[] = new Vec2[4];
+			Vec2 vrt[] = new Vec2[4];
+			
+			hrz[0] = new Vec2(0.0f, 0.0f);
+			hrz[1] = new Vec2(getWidth(), 0.0f);
+			hrz[2] = new Vec2(getWidth(), 2.0f);
+			hrz[3] = new Vec2(0.0f, 2.0f);
+			
+			vrt[0] = new Vec2(0.0f, 0.0f);
+			vrt[1] = new Vec2(2.0f, 0.0f);
+			vrt[2] = new Vec2(2.0f, getHeight());
+			vrt[3] = new Vec2(0.0f, getHeight());
+			
+			for (int i=0; i<hrz.length; i++) {
+				northWall.addVertex(hrz[i]);
+				southWall.addVertex(hrz[i].add(yOffset));
+				westWall.addVertex(vrt[i]);
+				eastWall.addVertex(vrt[i].add(xOffset));
+			}
+			
+			northWall.restitution = 0.0f;
+			eastWall.restitution = 0.0f;
+			southWall.restitution = 0.0f;
+			westWall.restitution = 0.0f;
+			
+			northWall.friction = 0.0f;
+			eastWall.friction = 0.0f;
+			southWall.friction = 0.0f;
+			westWall.friction = 0.0f;
+			
+			boundaryBody.createShape(northWall);
+			boundaryBody.createShape(eastWall);
+			boundaryBody.createShape(southWall);
+			boundaryBody.createShape(westWall);
+		}
+		
+		private void createPaddle() {
+			BodyDef paddleBodyDef = new BodyDef();
+			paddleBodyDef.position.set(getWidth() / 2, getHeight() - 50.0f);
+	        paddleBody = world.createBody(paddleBodyDef);
+	        
+	        PolygonDef paddle = new PolygonDef();
+	        paddle.setAsBox(PADDLE_WIDTH, PADDLE_HEIGHT);
+	        paddle.density = 1.0f;
+	        paddle.friction = 0.0f;
+	        paddle.restitution = 0.0f;
+	        paddleBody.createShape(paddle);
+	        Log.i(TAG, "Paddle created at (" + paddleBody.getPosition().x + ", " + paddleBody.getPosition().y + ")");
+		}
+		
+		private void createComputerPaddle() {
+			BodyDef paddleBodyDef = new BodyDef();
+			paddleBodyDef.position.set(getWidth() / 2, 50.0f);
+			computerBody = world.createBody(paddleBodyDef);
+			
+			PolygonDef computer = new PolygonDef();
+			computer.setAsBox(PADDLE_WIDTH, PADDLE_HEIGHT);
+			computer.density = 1.0f;
+			computer.friction = 0.0f;
+			computer.restitution = 0.0f;
+			computerBody.createShape(computer);
+			Log.i(TAG, "Computer paddle created at (" + computerBody.getPosition().x + ", " + computerBody.getPosition().y + ")");
+		}
+		
+		private void drawPaddle(Canvas canvas, Paint mpaint) {
+			// TODO: Come up with more efficient way to draw polygons
+			PolygonShape ps;
+			
+			/* Draw player paddle */
+			ps = (PolygonShape) paddleBody.getShapeList();
+			canvas.drawRect(ps.getVertices()[0].x + paddleBody.getPosition().x,
+							ps.getVertices()[0].y + paddleBody.getPosition().y,
+							ps.getVertices()[2].x + paddleBody.getPosition().x,
+							ps.getVertices()[2].y + paddleBody.getPosition().y,
+							mpaint);
+			/* Draw computer paddle */
+			ps = (PolygonShape) computerBody.getShapeList();
+			canvas.drawRect(ps.getVertices()[0].x + computerBody.getPosition().x,
+							ps.getVertices()[0].y + computerBody.getPosition().y,
+							ps.getVertices()[2].x + computerBody.getPosition().x,
+							ps.getVertices()[2].y + computerBody.getPosition().y,
+							mpaint);
 		}
 		
 		private void addPongBall() {
@@ -382,6 +403,8 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			
 			if (r.nextFloat() < 0.5f) {
 				// Find how far the computer paddle has to travel
+				// then adjust it by some random chance of landing
+				// within an area twice the paddle's length
 				chase = (bvx * (by - 50.0f) / (bvy * -1.0f)) + (bx - cx) + (PADDLE_WIDTH * 2.0f * r.nextFloat());
 			} else {
 				chase = (bvx * (by - 50.0f) / (bvy * -1.0f)) + (bx - cx) - (PADDLE_WIDTH * 2.0f * r.nextFloat());
@@ -389,24 +412,25 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		}
 		
 		private void scaleBG() {
-			bgMatrix = new Matrix();
+			/*bgMatrix = new Matrix();
 			int width = mBackgroundImage.getWidth();
 			int height = mBackgroundImage.getHeight();
 			int newWidth = getWidth();
 			int newHeight = getHeight();
 			bgMatrix.postScale(((float) newWidth) / width, ((float) newHeight) / height);
-			newBg = Bitmap.createBitmap(mBackgroundImage, 0, 0, width, height, bgMatrix, true);
+			newBg = Bitmap.createBitmap(mBackgroundImage, 0, 0, width, height, bgMatrix, true);*/
+			newBg = Bitmap.createScaledBitmap(mBackgroundImage, getWidth(), getHeight(), true);
 		}
 		
 		private void setRunning(boolean r) {
 			mRun = r;
 		}
 		
-		private void setState(int s) {
+		public void setState(int s) {
 			state = s;
 		}
 		
-		private int checkState() {
+		public int checkState() {
 			return state;
 		}
 		
@@ -415,22 +439,111 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			addPongBall();
 			firstGuess = true;
 			secondGuess = false;
+			setState(STATE_RUN);
 		}
+		
+		private void resetGame() {
+			destroyPongBall();
+			addPongBall();
+			firstGuess = true;
+			secondGuess = false;
+			playerScore = 0;
+			computerScore = 0;
+			setState(STATE_RUN);
+		}
+		
+		private void setContact(float x, float y) {
+			contactX = x;
+			contactY = y;
+		}
+		
+		public void pause() {
+			synchronized (getHolder()) {
+				if (state == STATE_RUN)
+					setState(STATE_PAUSE);
+				
+				// Activity paused, destroys all JBox2D bodies
+				Body b = world.getBodyList();
+				for (int i=0; i<world.getBodyCount(); i++) {
+					world.destroyBody(b);
+					if (b.getNext() != null)
+						b = b.getNext();
+				}
+				
+				// Release MediaPlayers
+				mpBump.release();
+				mpScore.release();
+				mpFail.release();
+				
+				// Need to reinitialize everything again later
+				init = false;
+			}
+			
+			Log.i(TAG, "All bodies in world destroyed");
+		}
+		
+		/**
+         * Dump game state to the provided Bundle. Typically called when the
+         * Activity is being suspended.
+         * 
+         * @return Bundle with this view's state
+         */
+        public Bundle saveState(Bundle bundle) {
+            synchronized (getHolder()) {
+                if (bundle != null) {
+                	bundle.putFloat(KEY_PLAYER_X, paddleBody.getPosition().x);
+                	bundle.putFloat(KEY_PLAYER_Y, paddleBody.getPosition().y);
+                	bundle.putFloat(KEY_COMPUTER_X, computerBody.getPosition().x);
+                	bundle.putFloat(KEY_COMPUTER_Y, computerBody.getPosition().y);
+                	bundle.putFloat(KEY_BALL_X, pongBallBody.getPosition().x);
+                	bundle.putFloat(KEY_BALL_Y, pongBallBody.getPosition().y);
+                	bundle.putFloat(KEY_PLAYER_SCORE, playerScore);
+                	bundle.putFloat(KEY_COMPUTER_SCORE, computerScore);
+                }
+            }
+            return bundle;
+        }
+        
+        /**
+         * Restores game state from the indicated Bundle. Typically called when
+         * the Activity is being restored after having been previously
+         * destroyed.
+         * 
+         * @param savedState Bundle containing the game state
+         */
+        public synchronized void restoreState(Bundle savedState) {
+        	synchronized (getHolder()) {
+        		setState(STATE_PAUSE);
+        		paddleBody.setXForm(new Vec2(savedState.getFloat(KEY_PLAYER_X),
+        									 savedState.getFloat(KEY_PLAYER_Y)),
+        							0.0f);
+        		computerBody.setXForm(new Vec2(savedState.getFloat(KEY_COMPUTER_X),
+        									   savedState.getFloat(KEY_COMPUTER_Y)),
+        							  0.0f);
+        		pongBallBody.setXForm(new Vec2(savedState.getFloat(KEY_BALL_X),
+        									   savedState.getFloat(KEY_BALL_Y)),
+        							  0.0f);
+        		playerScore = savedState.getInt(KEY_PLAYER_SCORE);
+        		computerScore = savedState.getInt(KEY_COMPUTER_SCORE);
+        	}
+        }
 		
 		public void run() {
 			while(mRun) {
 				updateState();
-				updateInput();
-				updateAI();
-				updatePhysics();
-				updateAnimation();
-				updateSound();
+				if (state == STATE_RUN || state == STATE_RESET) {
+					updateInput();
+					updateAI();
+					updatePhysics();
+					updateAnimation();
+					updateSound();
+				}
 				updateView();
 			}
 		}
 		
 		private void updateState() {
-			if (!init) {
+			/*if (!init) {
 				createWorld();
 				createBoundary();
 				scaleBG();
@@ -439,25 +552,56 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 				addPongBall();
 				
 				init = true;
-			}
+			}*/
 			
-			switch(checkState()) {
-			case STATE_START:
-				// Does nothing, continues as normal
-				break;
-			case STATE_RESET:
-				reset();
-				break;
-			case PLAYER_WINS:
-				reset();
-				break;
-			case COMPUTER_WINS:
-				reset();
-				break;
-			}
-			
+			if (state == STATE_RUN) {
+                Message msg = mHandler.obtainMessage();
+                Bundle b = new Bundle();
+                b.putString("text", "");
+                b.putInt("viz", View.INVISIBLE);
+                msg.setData(b);
+                mHandler.sendMessage(msg);
+            } else {
+                Resources res = mContext.getResources();
+                CharSequence str = "";
+                if (state == STATE_READY) {
+                	if (init) {
+	                	createWorld();
+	    				createBoundary();
+	    				scaleBG();
+	    				createPaddle();
+	    				createComputerPaddle();
+	    				init = false;
+                	}
+                    str = res.getText(R.string.state_ready);
+                } else if (state == STATE_PAUSE) {
+                    if (init) {
+	                	createWorld();
+	    				createBoundary();
+	    				scaleBG();
+	    				createPaddle();
+	    				createComputerPaddle();
+	    				addPongBall();
+	    				init = false;
+                	}
+                    str = res.getText(R.string.state_pause);
+                } else if (state == STATE_RESET)
+                	reset();
+                else if (state == STATE_LOSE)
+                    str = res.getText(R.string.state_lose);
+                else if (state == STATE_WIN) {
+                	str = res.getText(R.string.state_win);
+                }
+
+                Message msg = mHandler.obtainMessage();
+                Bundle b = new Bundle();
+                b.putString("text", str.toString());
+                b.putInt("viz", View.VISIBLE);
+                msg.setData(b);
+                mHandler.sendMessage(msg);
+            }
 			// Clears the state since we're done checking
-			setState(STATE_START);
+			//setState(STATE_START);
 			
 			world.step(timeStep, iterations);
 		}
@@ -577,9 +721,9 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			}
 			
 			if (playerScore == 10) {
-				setState(PLAYER_WINS);
+				setState(STATE_WIN);
 			} else if (computerScore == 10) {
-				setState(COMPUTER_WINS);
+				setState(STATE_LOSE);
 			}
 		}
 		
@@ -614,45 +758,27 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			canvas.drawBitmap(newBg, 0, 0, null);
 			try {
 				synchronized (getHolder()) {
-					mpaint.setStyle(Paint.Style.FILL_AND_STROKE);
 					mpaint.setColor(Color.WHITE);
-					canvas.drawCircle(pongBallBody.getPosition().x,
-									  pongBallBody.getPosition().y,
-									  ((CircleShape) pongBallBody.getShapeList()).getRadius(),
-									  mpaint);
 					mpaint.setStyle(Paint.Style.FILL);
 					drawPaddle(canvas, mpaint);
-					mpaint.setTextSize(30.0f);
-					canvas.drawText(Integer.toString(playerScore), getWidth() / 2 - 10.0f, getHeight() / 2 + 60.0f, mpaint);
-					canvas.drawText(Integer.toString(computerScore), getWidth() / 2 - 10.0f, getHeight() / 2 - 30.0f, mpaint);
+					if (state == STATE_RUN) {
+						mpaint.setStyle(Paint.Style.FILL_AND_STROKE);
+						canvas.drawCircle(pongBallBody.getPosition().x,
+										  pongBallBody.getPosition().y,
+										  ((CircleShape) pongBallBody.getShapeList()).getRadius(),
+										  mpaint);
+					}
+					if (state == STATE_RUN || state == STATE_WIN || state == STATE_LOSE) {
+						mpaint.setTextSize(30.0f);
+						canvas.drawText(Integer.toString(playerScore), getWidth() / 2 - 10.0f, getHeight() / 2 + 60.0f, mpaint);
+						canvas.drawText(Integer.toString(computerScore), getWidth() / 2 - 10.0f, getHeight() / 2 - 30.0f, mpaint);
+					}
 				}
 			} finally {
 				if (canvas != null) {
 					getHolder().unlockCanvasAndPost(canvas);
 				}
 			}
-		}
-		
-		private void setContact(float x, float y) {
-			contactX = x;
-			contactY = y;
-		}
-		
-		public void pause() {
-			// Activity paused, destroys all JBox2D bodies
-			Body b = world.getBodyList();
-			for (int i=0; i<world.getBodyCount(); i++) {
-				world.destroyBody(b);
-				if (b.getNext() != null)
-					b = b.getNext();
-			}
-			
-			// Release MediaPlayer
-			mpBump.release();
-			mpScore.release();
-			mpFail.release();
-			
-			Log.i(TAG, "All bodies in world destroyed");
 		}
 	}
 	
@@ -671,9 +797,13 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		
 		@Override
 		public boolean onSingleTapConfirmed(MotionEvent e) {
-			//loop.downEvent = e;
-			//loop.addBall = true;
-			Log.i(TAG, "Down press occurred");
+			if (loop.checkState() == ballLoop.STATE_READY) {
+				loop.setState(ballLoop.STATE_RUN);
+				loop.addPongBall();
+			} else if (loop.checkState() == ballLoop.STATE_WIN || loop.checkState() == ballLoop.STATE_LOSE) {
+				loop.resetGame();
+			}
+			Log.i(TAG, "Game start");
 			return true;
 		}
 		
@@ -714,6 +844,10 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 	
 	public ballLoop getThread() {
 		return loop;
+	}
+	
+	public void setTextView(TextView textView) {
+		mStatusText = textView;
 	}
 	
 	@Override

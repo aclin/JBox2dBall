@@ -1,18 +1,18 @@
 package com.alin.jbox2dball;
 
 import android.app.Activity;
-import android.hardware.Sensor;
-import android.hardware.SensorEvent;
-import android.hardware.SensorEventListener;
-import android.hardware.SensorManager;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Surface;
+import android.widget.TextView;
 
-public class Jbox2dBall extends Activity implements SensorEventListener{
+import com.alin.jbox2dball.Jbox2dBallView.ballLoop;
+
+public class Jbox2dBall extends Activity {
 	private static final String TAG = "JBox2DBall";
-	private SensorManager sensorManager;
-	private Sensor accelerometer;
+	
+	private Jbox2dBallView mJbox2dBallView;
+	private ballLoop mBallLoop;
 	
     /** Called when the activity is first created. */
     @Override
@@ -20,10 +20,17 @@ public class Jbox2dBall extends Activity implements SensorEventListener{
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main);
         
-        getJbox2dBallView().createWorld();
+        mJbox2dBallView = (Jbox2dBallView) findViewById(R.id.jbox2dBall_view);
+        mBallLoop = mJbox2dBallView.getThread();
         
-        sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
-        accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        mJbox2dBallView.setTextView((TextView) findViewById(R.id.text));
+        //getJbox2dBallView().createWorld();
+        
+        if (savedInstanceState == null) {
+        	mBallLoop.setState(ballLoop.STATE_READY);
+        } else {
+        	mBallLoop.restoreState(savedInstanceState);
+        }
     }
     
     private Jbox2dBallView getJbox2dBallView() {
@@ -33,15 +40,13 @@ public class Jbox2dBall extends Activity implements SensorEventListener{
     @Override
     public void onPause() {
     	super.onPause();
-    	getJbox2dBallView().getThread().pause();
-    	sensorManager.unregisterListener(this, accelerometer);
+    	mBallLoop.pause();
     	Log.i(TAG, "Activity on pause");
     }
     
     @Override
     public void onResume() {
     	super.onResume();
-    	sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_UI);
     	Log.i(TAG, "Activity on resume");
     }
     
@@ -51,27 +56,16 @@ public class Jbox2dBall extends Activity implements SensorEventListener{
     	Log.i(TAG, "Activity on stop");
     }
     
+    /**
+     * Notification that something is about to happen, to give the Activity a
+     * chance to save state.
+     * 
+     * @param outState a Bundle into which this Activity should save its state
+     */
     @Override
-	public void onAccuracyChanged(Sensor sensor, int accuracy) {
-		
-	}
-    
-    @Override
-	public void onSensorChanged(SensorEvent event) {
-		if (event.sensor.getType() != Sensor.TYPE_ACCELEROMETER) return;
-		switch (getWindowManager().getDefaultDisplay().getOrientation()) {
-			case Surface.ROTATION_0:
-				//getJbox2dBallView().setGravity(-event.values[0], event.values[1]);
-				break;
-			case Surface.ROTATION_90:
-				//getJbox2dBallView().setGravity(event.values[1], event.values[0]);
-				break;
-			case Surface.ROTATION_180:
-				//getJbox2dBallView().setGravity(event.values[0], -event.values[1]);
-				break;
-			case Surface.ROTATION_270:
-				//getJbox2dBallView().setGravity(-event.values[1], -event.values[0]);
-				break;
-		}
-	}
+    protected void onSaveInstanceState(Bundle outState) {
+        // just have the View's thread save its state into our Bundle
+        super.onSaveInstanceState(outState);
+        mBallLoop.saveState(outState);
+    }
 }

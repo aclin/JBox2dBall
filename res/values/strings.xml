@@ -2,4 +2,9 @@
 <resources>
     <string name="hello">Hello World, Jbox2dBall!</string>
     <string name="app_name">JBox2D Ball</string>
+    <string name="state_ready">PONG\n\n\nTap Screen to Start Game</string>
+    <string name="state_pause">PAUSED\n\n\nTap screen to resume game</string>
+    <string name="state_win">YOU WIN! :)\n\n\n</string>
+    <string name="state_lose">YOU LOSE! :(\n\n\n</string>
+    <string name="jbox2dBall_text">READY</string>
 </resources>
