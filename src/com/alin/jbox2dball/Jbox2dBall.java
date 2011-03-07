@@ -28,9 +28,16 @@ public class Jbox2dBall extends Activity {
         
         if (savedInstanceState == null) {
         	mBallLoop.setState(ballLoop.STATE_READY);
+        	Log.i(TAG, "SIS is null");
         } else {
         	mBallLoop.restoreState(savedInstanceState);
+        	Log.i(TAG, "SIS is non-null");
         }
+        
+        //mBallLoop.setState(ballLoop.STATE_READY);
+    	//Log.i(TAG, "SIS is null");
+    	
+        Log.i(TAG, "Activity created");
     }
     
     private Jbox2dBallView getJbox2dBallView() {
@@ -45,6 +52,12 @@ public class Jbox2dBall extends Activity {
     }
     
     @Override
+    public void onRestoreInstanceState(Bundle savedInstanceState) {
+    	//mBallLoop.restoreState(savedInstanceState);
+    	Log.i(TAG, "Activity restoring");
+    }
+    
+    @Override
     public void onResume() {
     	super.onResume();
     	Log.i(TAG, "Activity on resume");
@@ -54,6 +67,21 @@ public class Jbox2dBall extends Activity {
     public void onStop() {
     	super.onStop();
     	Log.i(TAG, "Activity on stop");
+    }
+    
+    @Override
+    public void onDestroy() {
+    	super.onDestroy();
+    	/*boolean retry = true;
+    	while (retry) {
+    		try {
+    			mBallLoop.join();
+    			retry = false;
+    		} catch (InterruptedException e) {
+    			
+    		}
+    	}*/
+    	Log.i(TAG, "Activity is destroyed");
     }
     
     /**
@@ -66,6 +94,7 @@ public class Jbox2dBall extends Activity {
     protected void onSaveInstanceState(Bundle outState) {
         // just have the View's thread save its state into our Bundle
         super.onSaveInstanceState(outState);
-        mBallLoop.saveState(outState);
+        //mBallLoop.saveState(outState);
+        Log.i(TAG, "Activity instance saved");
     }
 }

@@ -33,6 +33,7 @@ import android.util.AttributeSet;
 import android.util.Log;
 import android.view.GestureDetector;
 import android.view.GestureDetector.SimpleOnGestureListener;
+import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -41,17 +42,20 @@ import android.widget.TextView;
 
 public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callback {
 	private static final String TAG = "Jbox2dBallView";
+	private static final boolean DEBUG_MODE = false;
 	
 	public float targetFPS = 40.0f;
 	public float timeStep = (10.0f / targetFPS);  
 	public int iterations = 5;
 	
+	private Context mContext;
 	private GestureDetector gestureDetector;
 	private TextView mStatusText;
 	private ballLoop loop;
 
 	public Jbox2dBallView(Context context, AttributeSet attrs) {
 		super(context, attrs);
+		mContext = context;
 		getHolder().addCallback(this);
 		gestureDetector = new GestureDetector(context, new GestureListener());
 		loop = new ballLoop(getHolder(), context, new Handler() {
@@ -61,7 +65,6 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
                 mStatusText.setText(m.getData().getString("text"));
             }
         });
-
 	}
 	/*
 	private void rain() {
@@ -157,6 +160,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		
 		// Flags
 		private boolean init = true;
+		private boolean threadVisible = true;
 		private boolean mRun = false;
 		private boolean touchDown = false;
 		private boolean addBall = false;
@@ -173,6 +177,8 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		private float contactY;
 		private float speed_Standard_X;
 		private float speed_Standard_Y;
+		private float prevSpeedX;
+		private float prevSpeedY;
 		private float speed_Up;
 		private float slide = 0.0f;
 		private float chase = 0.0f;
@@ -181,7 +187,6 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		private int computerScore = 0;
 		private int state;
 		
-		private Context mContext;
 		private Handler mHandler;
 		private MotionEvent downEvent;
 		private Random r = new Random(System.currentTimeMillis());
@@ -202,7 +207,6 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		private CircleDef ball;
 		
 		public ballLoop(SurfaceHolder surfaceHolder, Context context, Handler handler) {
-			mContext = context;
 			mHandler = handler;
 			
 			mpBump = MediaPlayer.create(context, R.raw.beep);
@@ -334,6 +338,13 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			ball.friction = 0.0f;
 			
 			pongBallBody.createShape(ball);
+			
+			
+			
+			Log.i(TAG, "Added Pong ball at: (" + pongBallBody.getPosition().x + " ," + pongBallBody.getPosition().y + ")");
+		}
+		
+		private void pushPongBall() {
 			pongBallBody.setMassFromShapes();
 			
 			// Add 5.0f to make sure the speed is at least 5.0f
@@ -357,8 +368,13 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			default:
 				pongBallBody.setLinearVelocity(new Vec2(speed_Standard_X, speed_Standard_Y));
 			}
-			//pongBallBody.setLinearVelocity(new Vec2(SPEED_STANDARD, SPEED_STANDARD));
-			Log.i(TAG, "Added Pong ball at: (" + pongBallBody.getPosition().x + " ," + pongBallBody.getPosition().y + ")");
+		}
+		
+		private void pushPongBall(float vx, float vy) {
+			pongBallBody.setLinearVelocity(new Vec2(vx, vy));
+			if (DEBUG_MODE) {
+				Log.i(TAG, "Ball speed: (" + vx + ", " + vy + ")");
+			}
 		}
 		
 		private void destroyPongBall() {
@@ -377,8 +393,10 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			else
 				paddleBody.setXForm(new Vec2(x - slide, y), 0.0f);
 			
-			Log.i(TAG, "Paddle slid to (" + paddleBody.getPosition().x + ", " + paddleBody.getPosition().y + ")");
-			Log.i(TAG, "Slide distance: " + slide);
+			if (DEBUG_MODE) {
+				Log.i(TAG, "Paddle slid to (" + paddleBody.getPosition().x + ", " + paddleBody.getPosition().y + ")");
+				Log.i(TAG, "Slide distance: " + slide);
+			}
 		}
 		
 		private void chaseBall() {
@@ -422,8 +440,12 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			newBg = Bitmap.createScaledBitmap(mBackgroundImage, getWidth(), getHeight(), true);
 		}
 		
-		private void setRunning(boolean r) {
-			mRun = r;
+		private void setRunning(boolean run) {
+			mRun = run;
+		}
+		
+		private void setVisibility(boolean v) {
+			threadVisible = v;
 		}
 		
 		public void setState(int s) {
@@ -437,6 +459,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		private void reset() {
 			destroyPongBall();
 			addPongBall();
+			pushPongBall();
 			firstGuess = true;
 			secondGuess = false;
 			setState(STATE_RUN);
@@ -445,6 +468,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		private void resetGame() {
 			destroyPongBall();
 			addPongBall();
+			pushPongBall();
 			firstGuess = true;
 			secondGuess = false;
 			playerScore = 0;
@@ -462,24 +486,35 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 				if (state == STATE_RUN)
 					setState(STATE_PAUSE);
 				
+				prevSpeedX = pongBallBody.getLinearVelocity().x;
+				prevSpeedY = pongBallBody.getLinearVelocity().y;
+				
+				pongBallBody.setLinearVelocity(new Vec2(0.0f, 0.0f));
 				// Activity paused, destroys all JBox2D bodies
-				Body b = world.getBodyList();
+				/*Body b = world.getBodyList();
 				for (int i=0; i<world.getBodyCount(); i++) {
 					world.destroyBody(b);
 					if (b.getNext() != null)
 						b = b.getNext();
-				}
+				}*/
 				
 				// Release MediaPlayers
-				mpBump.release();
-				mpScore.release();
-				mpFail.release();
+				
+				//mpBump.release();
+				//mpScore.release();
+				//mpFail.release();
 				
 				// Need to reinitialize everything again later
-				init = false;
+				//init = true;
 			}
 			
-			Log.i(TAG, "All bodies in world destroyed");
+			//Log.i(TAG, "All bodies in world destroyed");
+		}
+		
+		public void unpause() {
+			setState(ballLoop.STATE_RUN);
+			pongBallBody.wakeUp();
+			pushPongBall(prevSpeedX, prevSpeedY);
 		}
 		
 		/**
@@ -525,21 +560,26 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
         							  0.0f);
         		playerScore = savedState.getInt(KEY_PLAYER_SCORE);
         		computerScore = savedState.getInt(KEY_COMPUTER_SCORE);
+        		Log.i(TAG, "Internal restoration done");
         	}
         }
 		
 		public void run() {
 			while(mRun) {
-				updateState();
-				if (state == STATE_RUN || state == STATE_RESET) {
-					updateInput();
-					updateAI();
-					updatePhysics();
-					updateAnimation();
-					updateSound();
+				if (threadVisible) {
+					updateState();
+					if (state == STATE_RUN || state == STATE_RESET) {
+						updateInput();
+						updateAI();
+						updatePhysics();
+						updateAnimation();
+						updateSound();
+					}
+					updateView();
 				}
-				updateView();
 			}
+			
+			Log.i(TAG, "Loop stopped running");
 		}
 		
 		private void updateState() {
@@ -571,19 +611,11 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 	    				scaleBG();
 	    				createPaddle();
 	    				createComputerPaddle();
+	    				addPongBall();
 	    				init = false;
                 	}
                     str = res.getText(R.string.state_ready);
                 } else if (state == STATE_PAUSE) {
-                    if (init) {
-	                	createWorld();
-	    				createBoundary();
-	    				scaleBG();
-	    				createPaddle();
-	    				createComputerPaddle();
-	    				addPongBall();
-	    				init = false;
-                	}
                     str = res.getText(R.string.state_pause);
                 } else if (state == STATE_RESET)
                 	reset();
@@ -755,19 +787,17 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			Paint mpaint = new Paint();
 			//canvas.clipRect(0, 0, getWidth(), getHeight());
 			//canvas.drawColor(Color.WHITE);
-			canvas.drawBitmap(newBg, 0, 0, null);
 			try {
 				synchronized (getHolder()) {
+					canvas.drawBitmap(newBg, 0, 0, null);
 					mpaint.setColor(Color.WHITE);
 					mpaint.setStyle(Paint.Style.FILL);
 					drawPaddle(canvas, mpaint);
-					if (state == STATE_RUN) {
-						mpaint.setStyle(Paint.Style.FILL_AND_STROKE);
-						canvas.drawCircle(pongBallBody.getPosition().x,
-										  pongBallBody.getPosition().y,
-										  ((CircleShape) pongBallBody.getShapeList()).getRadius(),
-										  mpaint);
-					}
+					mpaint.setStyle(Paint.Style.FILL_AND_STROKE);
+					canvas.drawCircle(pongBallBody.getPosition().x,
+									  pongBallBody.getPosition().y,
+									  ((CircleShape) pongBallBody.getShapeList()).getRadius(),
+									  mpaint);
 					if (state == STATE_RUN || state == STATE_WIN || state == STATE_LOSE) {
 						mpaint.setTextSize(30.0f);
 						canvas.drawText(Integer.toString(playerScore), getWidth() / 2 - 10.0f, getHeight() / 2 + 60.0f, mpaint);
@@ -799,10 +829,12 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		public boolean onSingleTapConfirmed(MotionEvent e) {
 			if (loop.checkState() == ballLoop.STATE_READY) {
 				loop.setState(ballLoop.STATE_RUN);
-				loop.addPongBall();
-			} else if (loop.checkState() == ballLoop.STATE_WIN || loop.checkState() == ballLoop.STATE_LOSE) {
+				loop.pushPongBall();
+			} else if (loop.checkState() == ballLoop.STATE_PAUSE)
+				loop.unpause();
+			else if (loop.checkState() == ballLoop.STATE_WIN || loop.checkState() == ballLoop.STATE_LOSE)
 				loop.resetGame();
-			}
+			
 			Log.i(TAG, "Game start");
 			return true;
 		}
@@ -818,7 +850,8 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			
 			loop.setContact(x, y);
 			loop.contact = true;
-			Log.i(TAG, "Contact made at (" + x + ", " + y + ")");
+			if (DEBUG_MODE)
+				Log.i(TAG, "Contact made at (" + x + ", " + y + ")");
 			//Log.i(TAG, "add");
 			
 		}
@@ -851,6 +884,23 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 	}
 	
 	@Override
+	public boolean onKeyDown(int keyCode, KeyEvent msg) {
+		if (keyCode == KeyEvent.KEYCODE_BACK) {
+			boolean retry = true;
+			loop.setRunning(false);
+			while (retry) {
+				try {
+					loop.join();
+					retry = false;
+				} catch (InterruptedException e) {
+					
+				}
+			}
+		}
+		return true;
+	}
+	
+	@Override
 	public boolean onTouchEvent(MotionEvent e) {
 		if (e.getAction() == MotionEvent.ACTION_UP) {
 			loop.touchDown = false;
@@ -867,23 +917,43 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 
 	@Override
 	public void surfaceCreated(SurfaceHolder holder) {
+		// When this surface is created, start the thread
+		// if the thread isn't already started
 		Log.i(TAG, "Surface created");
 		loop.setRunning(true);
-		loop.start();
+		loop.setVisibility(true);
+		Thread.State s = loop.getState();
+		try {
+			loop.start();
+		} catch (IllegalThreadStateException e) {
+			if (s == Thread.State.NEW)
+				Log.i(TAG, "Thread is new");
+			else if (s == Thread.State.BLOCKED)
+				Log.i(TAG, "Thread is blocked");
+			else if (s == Thread.State.RUNNABLE)
+				Log.i(TAG, "Thread is running");
+			else if (s == Thread.State.WAITING)
+				Log.i(TAG, "Thread is waiting");
+			else if (s == Thread.State.TERMINATED)
+				Log.i(TAG, "Thread is terminated");
+		}
 	}
 
 	@Override
 	public void surfaceDestroyed(SurfaceHolder holder) {
-		Log.i(TAG, "Surface destroyed");
+		// Make sure that run() in thread doean't do anything
+		// but thread is still kept alive
 		boolean retry = true;
-		loop.setRunning(false);
+		//loop.setRunning(false);
 		while (retry) {
 			try {
-				loop.join();
+				loop.interrupt();
 				retry = false;
-			} catch (InterruptedException e) {
+			} catch (SecurityException e) {
 				
 			}
 		}
+		loop.setVisibility(false);
+		Log.i(TAG, "Surface destroyed");
 	}
 }
