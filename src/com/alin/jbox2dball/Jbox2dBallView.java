@@ -66,72 +66,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
             }
         });
 	}
-	/*
-	private void rain() {
-		CircleDef ball = new CircleDef();
-		ball.radius = 2.0f;
-		ball.density = 1.0f;
-		ball.restitution = 0.7f;
-		
-		for (int i = 0; i < 10; i++) {
-			BodyDef ballBodyDef = new BodyDef();
-			ballBodyDef.position.set(new Vec2(getWidth() / 2, 90.0f - 5.0f * i));
-			Body ballBody = world.createBody(ballBodyDef);
-			ballBody.createShape(ball);
-			ballBody.setMassFromShapes();
-			bodies.add(ballBody);
-		}
-		
-	}
 	
-	private void createBall() {
-		
-		// Create dynamic body
-		BodyDef ballBodyDef = new BodyDef();
-		ballBodyDef.position.set(20.0f, 20.0f);
-		Body ballBody = world.createBody(ballBodyDef);
-		
-		// Create shape with properties
-		ball = new CircleDef();
-		ball.radius = 3.0f;
-		ball.density = 1.0f;
-		ball.restitution = 0.7f;
-		
-		//Assign shape to Body
-		ballBody.createShape(ball);
-		ballBody.setMassFromShapes();
-	}
-	
-	private void createIncline(float angle) {
-		groundBodyDef.position.set(30.0f, 90.0f);
-		groundBodyDef.angle = angle;
-		groundBody = world.createBody(groundBodyDef);
-		PolygonDef incline = new PolygonDef();
-		incline.setAsBox(30.0f, 5.0f);
-		groundBody.createShape(incline);
-	}
-	
-	private void addBall(float x, float y) {
-		BodyDef ballBodyDef = new BodyDef();
-		ballBodyDef.position.set(x, y);
-		Body ballBody = world.createBody(ballBodyDef);
-		
-		CircleDef ball = new CircleDef();
-		ball.radius = 5.0f;
-		ball.density = 1.0f;
-		ball.restitution = 0.7f;
-		
-		ballBody.createShape(ball);
-		ballBody.setMassFromShapes();
-		bodies.add(ballBody);
-		Log.i(TAG, "Added 1 ball at: (" + x + " ," + y + ")");
-	}
-	
-	// Set world gravity
-	public void setGravity(float gx, float gy) {
-		world.setGravity(new Vec2(gx, gy));
-	}
-	*/
 	public class ballLoop extends Thread {
 		// Keys
 		private static final String KEY_PLAYER_X = "playerX";
@@ -154,9 +89,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		// Other constants
 		private static final float PADDLE_WIDTH = 30.0f; // Note this is half-width, total is 60.0f
 		private static final float PADDLE_HEIGHT = 5.0f; // Note this is half-height, total is 10.0f
-		private static final float SPEED_STANDARD = 8.0f;
 		private static final float SPEED_UP = 2.0f;
-		private static final float CHASE_DELAY_STANDARD = 9.0f;
 		
 		// Flags
 		private boolean init = true;
@@ -457,8 +390,13 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		}
 		
 		private void reset() {
-			destroyPongBall();
-			addPongBall();
+			// Stop the PONG ball, reset its position to the middle of the screen
+			// then push again to move in random direction
+			
+			//destroyPongBall();
+			//addPongBall();
+			pongBallBody.setLinearVelocity(new Vec2(0.0f, 0.0f));
+			pongBallBody.setXForm(new Vec2(getWidth() / 2, getHeight() / 2), 0.0f);
 			pushPongBall();
 			firstGuess = true;
 			secondGuess = false;
@@ -466,8 +404,10 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		}
 		
 		private void resetGame() {
-			destroyPongBall();
-			addPongBall();
+			//destroyPongBall();
+			//addPongBall();
+			pongBallBody.setLinearVelocity(new Vec2(0.0f, 0.0f));
+			pongBallBody.setXForm(new Vec2(getWidth() / 2, getHeight() / 2), 0.0f);
 			pushPongBall();
 			firstGuess = true;
 			secondGuess = false;
@@ -583,16 +523,6 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		}
 		
 		private void updateState() {
-			/*if (!init) {
-				createWorld();
-				createBoundary();
-				scaleBG();
-				createPaddle();
-				createComputerPaddle();
-				addPongBall();
-				
-				init = true;
-			}*/
 			
 			if (state == STATE_RUN) {
                 Message msg = mHandler.obtainMessage();
@@ -632,8 +562,6 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
                 msg.setData(b);
                 mHandler.sendMessage(msg);
             }
-			// Clears the state since we're done checking
-			//setState(STATE_START);
 			
 			world.step(timeStep, iterations);
 		}
@@ -902,9 +830,9 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 	
 	@Override
 	public boolean onTouchEvent(MotionEvent e) {
-		if (e.getAction() == MotionEvent.ACTION_UP) {
-			loop.touchDown = false;
-		}
+		//if (e.getAction() == MotionEvent.ACTION_UP) {
+			//loop.touchDown = false;
+		//}
 		return gestureDetector.onTouchEvent(e);
 	}
 	
