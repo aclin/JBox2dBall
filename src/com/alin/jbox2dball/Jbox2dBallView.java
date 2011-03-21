@@ -154,7 +154,6 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			worldAABB.lowerBound.set(new Vec2(0.0f, 0.0f));
 			worldAABB.upperBound.set(new Vec2(getWidth(), getHeight()));
 			
-			//Vec2 gravity = new Vec2(0.0f, 9.8f);
 			Vec2 gravity = new Vec2(0.0f, 0.0f); // Zero-gravity environment, all velocities persists
 			boolean doSleep = true;
 			world = new World(worldAABB, gravity, doSleep);
@@ -272,8 +271,6 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			
 			pongBallBody.createShape(ball);
 			
-			
-			
 			Log.i(TAG, "Added Pong ball at: (" + pongBallBody.getPosition().x + " ," + pongBallBody.getPosition().y + ")");
 		}
 		
@@ -363,13 +360,6 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		}
 		
 		private void scaleBG() {
-			/*bgMatrix = new Matrix();
-			int width = mBackgroundImage.getWidth();
-			int height = mBackgroundImage.getHeight();
-			int newWidth = getWidth();
-			int newHeight = getHeight();
-			bgMatrix.postScale(((float) newWidth) / width, ((float) newHeight) / height);
-			newBg = Bitmap.createBitmap(mBackgroundImage, 0, 0, width, height, bgMatrix, true);*/
 			newBg = Bitmap.createScaledBitmap(mBackgroundImage, getWidth(), getHeight(), true);
 		}
 		
@@ -462,7 +452,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
          * Activity is being suspended.
          * 
          * @return Bundle with this view's state
-         */
+         **/
         public Bundle saveState(Bundle bundle) {
             synchronized (getHolder()) {
                 if (bundle != null) {
@@ -713,10 +703,9 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		private void updateView() {
 			Canvas canvas = getHolder().lockCanvas(null);
 			Paint mpaint = new Paint();
-			//canvas.clipRect(0, 0, getWidth(), getHeight());
-			//canvas.drawColor(Color.WHITE);
 			try {
 				synchronized (getHolder()) {
+					//canvas.drawBitmap(mBackgroundImage, 0, 0, null);
 					canvas.drawBitmap(newBg, 0, 0, null);
 					mpaint.setColor(Color.WHITE);
 					mpaint.setStyle(Paint.Style.FILL);
