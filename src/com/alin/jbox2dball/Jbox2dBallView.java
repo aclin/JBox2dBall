@@ -42,7 +42,7 @@ import android.widget.TextView;
 
 public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callback {
 	private static final String TAG = "Jbox2dBallView";
-	private static final boolean DEBUG_MODE = false;
+	//private static final boolean DEBUG_MODE = false;
 	
 	public float targetFPS = 40.0f;
 	public float timeStep = (10.0f / targetFPS);  
@@ -302,9 +302,9 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		
 		private void pushPongBall(float vx, float vy) {
 			pongBallBody.setLinearVelocity(new Vec2(vx, vy));
-			if (DEBUG_MODE) {
+			/*if (DEBUG_MODE) {
 				Log.i(TAG, "Ball speed: (" + vx + ", " + vy + ")");
-			}
+			}*/
 		}
 		
 		private void destroyPongBall() {
@@ -322,11 +322,11 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 				paddleBody.setXForm(new Vec2(PADDLE_WIDTH, y), 0.0f);
 			else
 				paddleBody.setXForm(new Vec2(x - slide, y), 0.0f);
-			
+			/*
 			if (DEBUG_MODE) {
 				Log.i(TAG, "Paddle slid to (" + paddleBody.getPosition().x + ", " + paddleBody.getPosition().y + ")");
 				Log.i(TAG, "Slide distance: " + slide);
-			}
+			}*/
 		}
 		
 		private void chaseBall() {
@@ -767,8 +767,8 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			
 			loop.setContact(x, y);
 			loop.contact = true;
-			if (DEBUG_MODE)
-				Log.i(TAG, "Contact made at (" + x + ", " + y + ")");
+			//if (DEBUG_MODE)
+			//	Log.i(TAG, "Contact made at (" + x + ", " + y + ")");
 			//Log.i(TAG, "add");
 			
 		}
