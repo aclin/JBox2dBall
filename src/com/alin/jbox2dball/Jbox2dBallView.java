@@ -46,7 +46,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 	
 	public float targetFPS = 40.0f;
 	public float timeStep = (10.0f / targetFPS);  
-	public int iterations = 5;
+	public int iterations = 10;
 	
 	private Context mContext;
 	private GestureDetector gestureDetector;
