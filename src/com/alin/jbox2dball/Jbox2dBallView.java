@@ -85,6 +85,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		public static final int STATE_LOSE = 3;
 		public static final int STATE_RESET = 4;
 		public static final int STATE_PAUSE = 5;
+		public static final int STATE_SUSPEND = 6;
 		
 		// Other constants
 		private static final float PADDLE_WIDTH = 30.0f; // Note this is half-width, total is 60.0f
@@ -119,6 +120,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		private int playerScore = 0;
 		private int computerScore = 0;
 		private int state;
+		private int prevState;
 		
 		private Handler mHandler;
 		private MotionEvent downEvent;
@@ -396,6 +398,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		private void resetGame() {
 			//destroyPongBall();
 			//addPongBall();
+			pongBallBody.wakeUp();
 			pongBallBody.setLinearVelocity(new Vec2(0.0f, 0.0f));
 			pongBallBody.setXForm(new Vec2(getWidth() / 2, getHeight() / 2), 0.0f);
 			pushPongBall();
@@ -411,10 +414,14 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			contactY = y;
 		}
 		
+		// Pauses the game
+		// Game thread is still running
 		public void pause() {
 			synchronized (getHolder()) {
 				if (state == STATE_RUN)
 					setState(STATE_PAUSE);
+				
+				prevState = state;
 				
 				prevSpeedX = pongBallBody.getLinearVelocity().x;
 				prevSpeedY = pongBallBody.getLinearVelocity().y;
@@ -427,6 +434,23 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			setState(ballLoop.STATE_RUN);
 			pongBallBody.wakeUp();
 			pushPongBall(prevSpeedX, prevSpeedY);
+		}
+		
+		// Suspends the game
+		// The game thread will wait
+		public synchronized void suspendLoop(){
+			setState(STATE_SUSPEND);
+			/*while (state == STATE_SUSPEND) {
+				wait();
+			}*/
+		}
+		
+		// Game returns from suspension
+		// Calls notify() to start the game thread
+		public synchronized void unsuspendLoop() {
+			setState(prevState);
+			notifyAll();
+			Log.i(TAG, "Loop unsuspended");
 		}
 		
 		/**
@@ -478,17 +502,15 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		
 		public void run() {
 			while(mRun) {
-				if (threadVisible) {
-					updateState();
-					if (state == STATE_RUN || state == STATE_RESET) {
-						updateInput();
-						updateAI();
-						updatePhysics();
-						updateAnimation();
-						updateSound();
-					}
-					updateView();
+				updateState();
+				if (state == STATE_RUN || state == STATE_RESET) {
+					updateInput();
+					updateAI();
+					updatePhysics();
+					updateAnimation();
+					updateSound();
 				}
+				updateView();
 			}
 			
 			Log.i(TAG, "Loop stopped running");
@@ -537,14 +559,11 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
             }
 			
 			synchronized (this) {
-				Thread.State s = this.getState();
-				if (s != Thread.State.WAITING) {
-					while (state == STATE_PAUSE) {
-						try {
-							wait();
-						} catch (InterruptedException e) {
-							
-						}
+				while (state == STATE_SUSPEND) {
+					try {
+						wait();
+					} catch (InterruptedException e) {
+						
 					}
 				}
 			}
@@ -835,9 +854,8 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		// When this surface is created, start the thread
 		// if the thread isn't already started
 		Log.i(TAG, "Surface created");
-		synchronized (loop) {
 		loop.setRunning(true);
-		loop.setVisibility(true);
+		//loop.setVisibility(true);
 		Thread.State s = loop.getState();
 		try {
 			loop.start();
@@ -850,10 +868,8 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 				Log.i(TAG, "Thread is running");
 			else if (s == Thread.State.WAITING) {
 				Log.i(TAG, "Thread is waiting");
-				loop.notifyAll();
 			} else if (s == Thread.State.TERMINATED)
 				Log.i(TAG, "Thread is terminated");
-		}
 		}
 	}
 

@@ -52,6 +52,7 @@ public class Jbox2dBall extends Activity {
     @Override
     public void onRestart() {
     	super.onRestart();
+    	mBallLoop.unsuspendLoop();
     	Log.i(TAG, "Activity is restarting");
     }
     
@@ -88,6 +89,7 @@ public class Jbox2dBall extends Activity {
     @Override
     public void onStop() {
     	super.onStop();
+    	mBallLoop.suspendLoop();
     	Log.i(TAG, "Activity on stop");
     }
     
@@ -103,6 +105,7 @@ public class Jbox2dBall extends Activity {
     			
     		}
     	}*/
+    	//mBallLoop.unsuspendLoop(); // unsuspend the game thread so that it can be destroyed
     	Log.i(TAG, "Activity is destroyed");
     }
     
