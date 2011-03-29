@@ -45,7 +45,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 	//private static final boolean DEBUG_MODE = false;
 	
 	public float targetFPS = 40.0f;
-	public float timeStep = (10.0f / targetFPS);  
+	public float timeStep = (10.0f / targetFPS);
 	public int iterations = 10;
 	
 	private Context mContext;
@@ -420,25 +420,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 				prevSpeedY = pongBallBody.getLinearVelocity().y;
 				
 				pongBallBody.setLinearVelocity(new Vec2(0.0f, 0.0f));
-				// Activity paused, destroys all JBox2D bodies
-				/*Body b = world.getBodyList();
-				for (int i=0; i<world.getBodyCount(); i++) {
-					world.destroyBody(b);
-					if (b.getNext() != null)
-						b = b.getNext();
-				}*/
-				
-				// Release MediaPlayers
-				
-				//mpBump.release();
-				//mpScore.release();
-				//mpFail.release();
-				
-				// Need to reinitialize everything again later
-				//init = true;
 			}
-			
-			//Log.i(TAG, "All bodies in world destroyed");
 		}
 		
 		public void unpause() {
@@ -521,6 +503,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
                 b.putInt("viz", View.INVISIBLE);
                 msg.setData(b);
                 mHandler.sendMessage(msg);
+                
             } else {
                 Resources res = mContext.getResources();
                 CharSequence str = "";
@@ -552,6 +535,19 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
                 msg.setData(b);
                 mHandler.sendMessage(msg);
             }
+			
+			synchronized (this) {
+				Thread.State s = this.getState();
+				if (s != Thread.State.WAITING) {
+					while (state == STATE_PAUSE) {
+						try {
+							wait();
+						} catch (InterruptedException e) {
+							
+						}
+					}
+				}
+			}
 			
 			world.step(timeStep, iterations);
 		}
@@ -706,6 +702,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			try {
 				synchronized (getHolder()) {
 					//canvas.drawBitmap(mBackgroundImage, 0, 0, null);
+					if (canvas != null) {
 					canvas.drawBitmap(newBg, 0, 0, null);
 					mpaint.setColor(Color.WHITE);
 					mpaint.setStyle(Paint.Style.FILL);
@@ -719,6 +716,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 						mpaint.setTextSize(30.0f);
 						canvas.drawText(Integer.toString(playerScore), getWidth() / 2 - 10.0f, getHeight() / 2 + 60.0f, mpaint);
 						canvas.drawText(Integer.toString(computerScore), getWidth() / 2 - 10.0f, getHeight() / 2 - 30.0f, mpaint);
+					}
 					}
 				}
 			} finally {
@@ -837,6 +835,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		// When this surface is created, start the thread
 		// if the thread isn't already started
 		Log.i(TAG, "Surface created");
+		synchronized (loop) {
 		loop.setRunning(true);
 		loop.setVisibility(true);
 		Thread.State s = loop.getState();
@@ -849,10 +848,12 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 				Log.i(TAG, "Thread is blocked");
 			else if (s == Thread.State.RUNNABLE)
 				Log.i(TAG, "Thread is running");
-			else if (s == Thread.State.WAITING)
+			else if (s == Thread.State.WAITING) {
 				Log.i(TAG, "Thread is waiting");
-			else if (s == Thread.State.TERMINATED)
+				loop.notifyAll();
+			} else if (s == Thread.State.TERMINATED)
 				Log.i(TAG, "Thread is terminated");
+		}
 		}
 	}
 
@@ -860,8 +861,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 	public void surfaceDestroyed(SurfaceHolder holder) {
 		// Make sure that run() in thread doean't do anything
 		// but thread is still kept alive
-		boolean retry = true;
-		//loop.setRunning(false);
+		/*boolean retry = true;
 		while (retry) {
 			try {
 				loop.interrupt();
@@ -870,7 +870,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 				
 			}
 		}
-		loop.setVisibility(false);
+		loop.setVisibility(false); */
 		Log.i(TAG, "Surface destroyed");
 	}
 }

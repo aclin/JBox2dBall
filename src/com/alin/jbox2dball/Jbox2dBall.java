@@ -3,7 +3,6 @@ package com.alin.jbox2dball;
 import android.app.Activity;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.Surface;
 import android.widget.TextView;
 
 import com.alin.jbox2dball.Jbox2dBallView.ballLoop;
@@ -45,6 +44,18 @@ public class Jbox2dBall extends Activity {
     }
     
     @Override
+    public void onStart() {
+    	super.onStart();
+    	Log.i(TAG, "Activity is starting");
+    }
+    
+    @Override
+    public void onRestart() {
+    	super.onRestart();
+    	Log.i(TAG, "Activity is restarting");
+    }
+    
+    @Override
     public void onPause() {
     	super.onPause();
     	mBallLoop.pause();
@@ -60,6 +71,17 @@ public class Jbox2dBall extends Activity {
     @Override
     public void onResume() {
     	super.onResume();
+    	/*Thread.State s = mBallLoop.getState();
+    	if (s == Thread.State.NEW)
+			Log.i(TAG, "TLoop thread is new");
+		else if (s == Thread.State.BLOCKED)
+			Log.i(TAG, "Loop thread is blocked");
+		else if (s == Thread.State.RUNNABLE)
+			Log.i(TAG, "Loop thread is running");
+		else if (s == Thread.State.WAITING)
+			Log.i(TAG, "Loop thread is waiting");
+		else if (s == Thread.State.TERMINATED)
+			Log.i(TAG, "Loop thread is terminated");*/
     	Log.i(TAG, "Activity on resume");
     }
     
