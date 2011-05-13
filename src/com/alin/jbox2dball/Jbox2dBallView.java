@@ -94,7 +94,6 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		
 		// Flags
 		private boolean init = true;
-		private boolean threadVisible = true;
 		private boolean mRun = false;
 		private boolean touchDown = false;
 		private boolean addBall = false;
@@ -104,6 +103,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		private boolean speedUp = false;
 		private boolean firstGuess = true;
 		private boolean secondGuess = false;
+		private boolean move = false;
 		private boolean playScore = false;
 		private boolean playFail = false;
 		
@@ -116,6 +116,10 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		private float speed_Up;
 		private float slide = 0.0f;
 		private float chase = 0.0f;
+		private float chaseTarget = 0.0f;
+		
+		private Vec2 chaseLeft = new Vec2(-5.0f, 0.0f);
+		private Vec2 chaseRight = new Vec2(5.0f, 0.0f);
 		
 		private int playerScore = 0;
 		private int computerScore = 0;
@@ -189,8 +193,12 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			vrt[2] = new Vec2(2.0f, getHeight());
 			vrt[3] = new Vec2(0.0f, getHeight());
 			
+			northWall.addVertex(new Vec2(0.0f, 48.0f - PADDLE_HEIGHT));
+			northWall.addVertex(new Vec2(getWidth(), 48.0f - PADDLE_HEIGHT));
+			northWall.addVertex(new Vec2(getWidth(), 50.0f - PADDLE_HEIGHT));
+			northWall.addVertex(new Vec2(0.0f, 50.0f - PADDLE_HEIGHT));
+			
 			for (int i=0; i<hrz.length; i++) {
-				northWall.addVertex(hrz[i]);
 				southWall.addVertex(hrz[i].add(yOffset));
 				westWall.addVertex(vrt[i]);
 				eastWall.addVertex(vrt[i].add(xOffset));
@@ -233,10 +241,11 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			
 			PolygonDef computer = new PolygonDef();
 			computer.setAsBox(PADDLE_WIDTH, PADDLE_HEIGHT);
-			computer.density = 1.0f;
+			computer.density = 5.0f;
 			computer.friction = 0.0f;
 			computer.restitution = 0.0f;
 			computerBody.createShape(computer);
+			computerBody.setMassFromShapes();
 			Log.i(TAG, "Computer paddle created at (" + computerBody.getPosition().x + ", " + computerBody.getPosition().y + ")");
 		}
 		
@@ -267,7 +276,7 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			
 			CircleDef ball = new CircleDef();
 			ball.radius = 5.0f;
-			ball.density = 1.0f;
+			ball.density = 0.5f;
 			ball.restitution = 1.0f;
 			ball.friction = 0.0f;
 			
@@ -334,14 +343,42 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		private void chaseBall() {
 			float cx = computerBody.getPosition().x;
 			float cy = computerBody.getPosition().y;
+			float tol = 2.0f;
 			
 			// Keep the paddle within the screen width
+			/*
 			if (cx + chase > getWidth() - PADDLE_WIDTH)
 				computerBody.setXForm(new Vec2(getWidth() - PADDLE_WIDTH, cy), 0.0f);
 			else if (cx + chase < PADDLE_WIDTH)
 				computerBody.setXForm(new Vec2(PADDLE_WIDTH, cy), 0.0f);
 			else
 				computerBody.setXForm(new Vec2(cx + chase, cy), 0.0f);
+			*/
+			
+			// Check if the computer paddle is within the tolerance
+			// distance from the target location, and not move
+			// if it is.
+			if (Math.abs(cx - chaseTarget) > tol) {
+				if (chaseTarget > cx) {
+					stopPaddle();
+					if (cx < getWidth() - 50.0f) {
+						computerBody.setLinearVelocity(chaseRight);
+					}
+					Log.i(TAG, "Chasing right: " + chaseTarget);
+				} else if (chaseTarget < cx) {
+					stopPaddle();
+					if (cx > 50.0f) {
+						computerBody.setLinearVelocity(chaseLeft);
+					}
+					Log.i(TAG, "Chasing left: " + chaseTarget);
+				}
+			} else {
+				stopPaddle();
+			}
+		}
+		
+		private void stopPaddle() {
+			computerBody.setLinearVelocity(new Vec2(0, 0));
 		}
 		
 		private void guess() {
@@ -361,16 +398,23 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			}
 		}
 		
+		private void target() {
+			float bvx = pongBallBody.getLinearVelocity().x;
+			float bvy = pongBallBody.getLinearVelocity().y;
+			float bx = pongBallBody.getPosition().x;
+			float by = pongBallBody.getPosition().y;
+			float cx = computerBody.getPosition().x;
+			
+			// Find how far the computer paddle has to travel
+			chaseTarget = (bvx * (by - 50.0f) / (bvy * -1.0f)) + bx;
+		}
+		
 		private void scaleBG() {
 			newBg = Bitmap.createScaledBitmap(mBackgroundImage, getWidth(), getHeight(), true);
 		}
 		
 		private void setRunning(boolean run) {
 			mRun = run;
-		}
-		
-		private void setVisibility(boolean v) {
-			threadVisible = v;
 		}
 		
 		public void setState(int s) {
@@ -432,7 +476,9 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		
 		public void unpause() {
 			setState(ballLoop.STATE_RUN);
+			// Wake up the bodies that need to move after unpausing
 			pongBallBody.wakeUp();
+			computerBody.wakeUp();
 			pushPongBall(prevSpeedX, prevSpeedY);
 		}
 		
@@ -440,13 +486,10 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		// The game thread will wait
 		public synchronized void suspendLoop(){
 			setState(STATE_SUSPEND);
-			/*while (state == STATE_SUSPEND) {
-				wait();
-			}*/
 		}
 		
 		// Game returns from suspension
-		// Calls notify() to start the game thread
+		// Calls notifyAll() to start the game thread
 		public synchronized void unsuspendLoop() {
 			setState(prevState);
 			notifyAll();
@@ -500,6 +543,11 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
         	}
         }
 		
+        /**
+         * Tells the game thread to run. Each loop goes through all
+         * the steps and updates all the changes in every aspect
+         * of the game.
+         */
 		public void run() {
 			while(mRun) {
 				updateState();
@@ -516,6 +564,12 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			Log.i(TAG, "Loop stopped running");
 		}
 		
+		/**
+		 * Update the state of the game at the beginning of each loop
+		 * The usual state is STATE_RUN when the game is running without
+		 * anything special happening.
+		 * Certain states will print a message on the screen.
+		 */
 		private void updateState() {
 			
 			if (state == STATE_RUN) {
@@ -558,6 +612,10 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
                 mHandler.sendMessage(msg);
             }
 			
+			// The suspend state calls wait() in the thread
+			// which will pause the loop while state == STATE_SUSPEND
+			// and until notifyAll() is called in unsuspendLoop()
+			// and state is changed to a non-suspend state.
 			synchronized (this) {
 				while (state == STATE_SUSPEND) {
 					try {
@@ -619,11 +677,14 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			}
 		}
 		
-		/* The computer paddle will calculate where the pong ball will land along
+		/**
+		 * The computer paddle will calculate where the pong ball will land along
 		 * the x-axis using the ball's linear velocity, since it is constant.
-		 * The computer paddle will then move to that point with some error margin,
-		 * which can cause the paddle to stop short or over shoot.
-		 * */
+		 * 
+		 * EDIT: The computer paddle will try to travel to that point at a set
+		 * speed. Therefore, it might get there quicker or slower. The computer
+		 * paddle will stop when it is within a tolerance of the contact point.
+		 */
 		private void updateAI() {
 			float bvx = pongBallBody.getLinearVelocity().x;
 			float bvy = pongBallBody.getLinearVelocity().y;
@@ -631,8 +692,9 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			float by = pongBallBody.getPosition().y;
 			float cx = computerBody.getPosition().x;
 			
+			computerBody.wakeUp();
 			// Check if the ball is heading towards the computer first
-			if (bvy < 0) {
+			/*if (bvy < 0) {
 				// Check if the ball is passed the halfway point
 				if (by < getHeight() / 2 && firstGuess) {
 					guess();
@@ -649,6 +711,22 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 				// so it doesn't have to move and firstGuess is reset
 				chase = 0.0f;
 				firstGuess = true;
+			}*/
+			
+			// Check if the ball is heading towards the computer first.
+			// Do nothing if the ball is going to the player.
+			if (bvy < 0) {
+				// Check if the ball is passed the halfway point to
+				// reduce the amount of time that the computer has to
+				// calculate and move.
+				if (by < getHeight() / 2) {
+					move = true;	// Tell the computer paddle to move.
+					target(); // Find the target point that the computer has to be to return the ball
+				} else {
+					move = false;
+				}
+			} else {
+				move = false;	// Tell the computer paddle not to move.
 			}
 		}
 		
@@ -673,13 +751,16 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 				speedUp = false;
 			}
 			
-			chaseBall();
+			if (move)
+				chaseBall();
+			else
+				stopPaddle();
 			
-			if (pongBallBody.getPosition().y < 50.0f) {
+			if (pongBallBody.getPosition().y < 55.0f) {
 				playerScore++;
 				playScore = true;
 				setState(STATE_RESET);
-			} else if (pongBallBody.getPosition().y > getHeight() - 50.0f) {
+			} else if (pongBallBody.getPosition().y > getHeight() - 55.0f) {
 				computerScore++;
 				playFail = true;
 				setState(STATE_RESET);
@@ -704,11 +785,13 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 				contact = false;
 			}
 			
+			// If the player scores a point, play a ring sound
 			if (playScore) {
 				mpScore.start();
 				playScore = false;
 			}
 			
+			// If the computer scores a point, play a buzzer sound
 			if (playFail) {;
 				mpFail.start();
 				playFail = false;
@@ -836,9 +919,6 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 	
 	@Override
 	public boolean onTouchEvent(MotionEvent e) {
-		//if (e.getAction() == MotionEvent.ACTION_UP) {
-			//loop.touchDown = false;
-		//}
 		return gestureDetector.onTouchEvent(e);
 	}
 	
@@ -855,7 +935,6 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		// if the thread isn't already started
 		Log.i(TAG, "Surface created");
 		loop.setRunning(true);
-		//loop.setVisibility(true);
 		Thread.State s = loop.getState();
 		try {
 			loop.start();
@@ -875,18 +954,6 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 
 	@Override
 	public void surfaceDestroyed(SurfaceHolder holder) {
-		// Make sure that run() in thread doean't do anything
-		// but thread is still kept alive
-		/*boolean retry = true;
-		while (retry) {
-			try {
-				loop.interrupt();
-				retry = false;
-			} catch (SecurityException e) {
-				
-			}
-		}
-		loop.setVisibility(false); */
 		Log.i(TAG, "Surface destroyed");
 	}
 }
