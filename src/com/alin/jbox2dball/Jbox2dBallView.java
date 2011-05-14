@@ -23,7 +23,6 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.media.MediaPlayer;
 import android.os.Bundle;
@@ -95,27 +94,22 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		// Flags
 		private boolean init = true;
 		private boolean mRun = false;
-		private boolean touchDown = false;
-		private boolean addBall = false;
 		private boolean scroll = false;
 		private boolean contact = false;
 		private boolean speedStandard = false;
 		private boolean speedUp = false;
-		private boolean firstGuess = true;
-		private boolean secondGuess = false;
 		private boolean move = false;
 		private boolean playScore = false;
 		private boolean playFail = false;
 		
+		// Numerical variables
 		private float contactX;
 		private float contactY;
 		private float speed_Standard_X;
 		private float speed_Standard_Y;
 		private float prevSpeedX;
 		private float prevSpeedY;
-		private float speed_Up;
 		private float slide = 0.0f;
-		private float chase = 0.0f;
 		private float chaseTarget = 0.0f;
 		
 		private Vec2 chaseLeft = new Vec2(-5.0f, 0.0f);
@@ -127,23 +121,17 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		private int prevState;
 		
 		private Handler mHandler;
-		private MotionEvent downEvent;
 		private Random r = new Random(System.currentTimeMillis());
 		private MediaPlayer mpBump;
 		private MediaPlayer mpScore;
 		private MediaPlayer mpFail;
 		private Bitmap mBackgroundImage;
 		private Bitmap newBg;
-		private Matrix bgMatrix;
 		
 		// JBox2D bodies
 		private World world;
 		private AABB worldAABB;
-		private BodyDef groundBodyDef = new BodyDef();
-		private List<Body> bodies = new ArrayList<Body>();
-		private Body groundBody;
 		private Body paddleBody, computerBody, pongBallBody;
-		private CircleDef ball;
 		
 		public ballLoop(SurfaceHolder surfaceHolder, Context context, Handler handler) {
 			mHandler = handler;
@@ -193,6 +181,8 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			vrt[2] = new Vec2(2.0f, getHeight());
 			vrt[3] = new Vec2(0.0f, getHeight());
 			
+			// Set the north wall just above the computer paddle so
+			// that the computer paddle won't move when the ball hits
 			northWall.addVertex(new Vec2(0.0f, 48.0f - PADDLE_HEIGHT));
 			northWall.addVertex(new Vec2(getWidth(), 48.0f - PADDLE_HEIGHT));
 			northWall.addVertex(new Vec2(getWidth(), 50.0f - PADDLE_HEIGHT));
@@ -318,10 +308,6 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			}*/
 		}
 		
-		private void destroyPongBall() {
-			world.destroyBody(pongBallBody);
-		}
-		
 		private void slidePaddle() {
 			float x = paddleBody.getPosition().x;
 			float y = paddleBody.getPosition().y;
@@ -340,39 +326,34 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			}*/
 		}
 		
+		/**
+		 * Tells the computer paddle to chase after the ball after the player
+		 * returns it across the net. The computer will figure out if the ball
+		 * is traveling to the left or right of it, and give chase at a set speed.
+		 */
 		private void chaseBall() {
 			float cx = computerBody.getPosition().x;
-			float cy = computerBody.getPosition().y;
 			float tol = 2.0f;
-			
-			// Keep the paddle within the screen width
-			/*
-			if (cx + chase > getWidth() - PADDLE_WIDTH)
-				computerBody.setXForm(new Vec2(getWidth() - PADDLE_WIDTH, cy), 0.0f);
-			else if (cx + chase < PADDLE_WIDTH)
-				computerBody.setXForm(new Vec2(PADDLE_WIDTH, cy), 0.0f);
-			else
-				computerBody.setXForm(new Vec2(cx + chase, cy), 0.0f);
-			*/
 			
 			// Check if the computer paddle is within the tolerance
 			// distance from the target location, and not move
 			// if it is.
-			if (Math.abs(cx - chaseTarget) > tol) {
+			if (Math.abs(cx - chaseTarget) > tol) { 
 				if (chaseTarget > cx) {
-					stopPaddle();
-					if (cx < getWidth() - 50.0f) {
+					// Target location is to the right of the paddle
+					stopPaddle();	// Stop the paddle first before changing direction
+					if (cx < getWidth() - 50.0f) {	// Keep the paddle within the boundary
 						computerBody.setLinearVelocity(chaseRight);
 					}
-					Log.i(TAG, "Chasing right: " + chaseTarget);
 				} else if (chaseTarget < cx) {
 					stopPaddle();
 					if (cx > 50.0f) {
 						computerBody.setLinearVelocity(chaseLeft);
 					}
-					Log.i(TAG, "Chasing left: " + chaseTarget);
 				}
 			} else {
+				// The paddle is within the tolerance distance from the target
+				// location, so it shouldn't move.
 				stopPaddle();
 			}
 		}
@@ -381,31 +362,23 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			computerBody.setLinearVelocity(new Vec2(0, 0));
 		}
 		
-		private void guess() {
-			float bvx = pongBallBody.getLinearVelocity().x;
-			float bvy = pongBallBody.getLinearVelocity().y;
-			float bx = pongBallBody.getPosition().x;
-			float by = pongBallBody.getPosition().y;
-			float cx = computerBody.getPosition().x;
-			
-			if (r.nextFloat() < 0.5f) {
-				// Find how far the computer paddle has to travel
-				// then adjust it by some random chance of landing
-				// within an area twice the paddle's length
-				chase = (bvx * (by - 50.0f) / (bvy * -1.0f)) + (bx - cx) + (PADDLE_WIDTH * 2.0f * r.nextFloat());
-			} else {
-				chase = (bvx * (by - 50.0f) / (bvy * -1.0f)) + (bx - cx) - (PADDLE_WIDTH * 2.0f * r.nextFloat());
-			}
-		}
-		
+		/**
+		 * Using the velocities of the ball, and the ball's location,
+		 * we can calculate where the ball is going to be along the
+		 * x-axis when it is level with the paddle. This is the target
+		 * location that the computer paddle will know where to chase
+		 * to as the ball is moving.
+		 */
 		private void target() {
 			float bvx = pongBallBody.getLinearVelocity().x;
 			float bvy = pongBallBody.getLinearVelocity().y;
 			float bx = pongBallBody.getPosition().x;
 			float by = pongBallBody.getPosition().y;
-			float cx = computerBody.getPosition().x;
 			
-			// Find how far the computer paddle has to travel
+			// Find where the target location is.
+			// First calculate how far the target is from the ball,
+			// then add it to the ball's current location.
+			// Directional velocity of the ball takes care of the sign.
 			chaseTarget = (bvx * (by - 50.0f) / (bvy * -1.0f)) + bx;
 		}
 		
@@ -429,25 +402,23 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			// Stop the PONG ball, reset its position to the middle of the screen
 			// then push again to move in random direction
 			
-			//destroyPongBall();
-			//addPongBall();
 			pongBallBody.setLinearVelocity(new Vec2(0.0f, 0.0f));
 			pongBallBody.setXForm(new Vec2(getWidth() / 2, getHeight() / 2), 0.0f);
 			pushPongBall();
-			firstGuess = true;
-			secondGuess = false;
 			setState(STATE_RUN);
 		}
 		
+		/**
+		 * To start another game when the game is won or lost.
+		 * Pong ball and computer paddle need to be wake up again, so
+		 * they can move.
+		 */
 		private void resetGame() {
-			//destroyPongBall();
-			//addPongBall();
 			pongBallBody.wakeUp();
+			computerBody.wakeUp();
 			pongBallBody.setLinearVelocity(new Vec2(0.0f, 0.0f));
 			pongBallBody.setXForm(new Vec2(getWidth() / 2, getHeight() / 2), 0.0f);
 			pushPongBall();
-			firstGuess = true;
-			secondGuess = false;
 			playerScore = 0;
 			computerScore = 0;
 			setState(STATE_RUN);
@@ -458,8 +429,10 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			contactY = y;
 		}
 		
-		// Pauses the game
-		// Game thread is still running
+		/**
+		 * Pauses the game
+		 * Game thread is still running.
+		 */
 		public void pause() {
 			synchronized (getHolder()) {
 				if (state == STATE_RUN)
@@ -481,15 +454,18 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 			computerBody.wakeUp();
 			pushPongBall(prevSpeedX, prevSpeedY);
 		}
-		
-		// Suspends the game
-		// The game thread will wait
+		/**
+		 * Suspends the game.
+		 * The game thread will wait.
+		 */
 		public synchronized void suspendLoop(){
 			setState(STATE_SUSPEND);
 		}
 		
-		// Game returns from suspension
-		// Calls notifyAll() to start the game thread
+		/**
+		 * Game returns from suspension.
+		 * Calls notifyAll() to start the game thread running again.
+		 */
 		public synchronized void unsuspendLoop() {
 			setState(prevState);
 			notifyAll();
@@ -681,37 +657,15 @@ public class Jbox2dBallView extends SurfaceView implements SurfaceHolder.Callbac
 		 * The computer paddle will calculate where the pong ball will land along
 		 * the x-axis using the ball's linear velocity, since it is constant.
 		 * 
-		 * EDIT: The computer paddle will try to travel to that point at a set
-		 * speed. Therefore, it might get there quicker or slower. The computer
-		 * paddle will stop when it is within a tolerance of the contact point.
+		 * The computer paddle will try to travel to that point at a set speed.
+		 * Therefore, it might get there quicker or slower. The computer paddle
+		 * will stop when it is within a tolerance distance of the contact point.
 		 */
 		private void updateAI() {
-			float bvx = pongBallBody.getLinearVelocity().x;
 			float bvy = pongBallBody.getLinearVelocity().y;
-			float bx = pongBallBody.getPosition().x;
 			float by = pongBallBody.getPosition().y;
-			float cx = computerBody.getPosition().x;
 			
 			computerBody.wakeUp();
-			// Check if the ball is heading towards the computer first
-			/*if (bvy < 0) {
-				// Check if the ball is passed the halfway point
-				if (by < getHeight() / 2 && firstGuess) {
-					guess();
-					firstGuess = false;
-					secondGuess = true;
-				} else if (by < 90.0f && secondGuess) {
-					guess();
-					secondGuess = false;
-				} else {
-					chase = 0.0f;
-				}
-			} else {
-				// The ball is heading away from the computer
-				// so it doesn't have to move and firstGuess is reset
-				chase = 0.0f;
-				firstGuess = true;
-			}*/
 			
 			// Check if the ball is heading towards the computer first.
 			// Do nothing if the ball is going to the player.
